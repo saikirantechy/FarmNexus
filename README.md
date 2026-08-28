@@ -30,7 +30,7 @@ It is **not** a generic agriculture news or advisory app. FarmNexus is a **real 
 
 ### 💰 Financial Intelligence
 - **Real-time Profit & Loss Dashboard** — instant net P&L after commissions, labour, and deductions
-- **Zero floating-point errors** — all arithmetic uses integer minor units (paise) to ensure ₹68 × 270 = ₹18,360 every time
+- **Paise-exact math** — every amount is rounded deterministically to the nearest paisa so ₹68 × 270 = ₹18,360 every time, with no floating-point drift
 - **Gross → Net calculation** — Sales − Commission − Transport − Other Deductions = Net Amount
 - **Receivables & Payables tracking** — who owes you money, who you owe
 
@@ -43,10 +43,10 @@ It is **not** a generic agriculture news or advisory app. FarmNexus is a **real 
 - Daily wage recording with male/female worker counts
 - Food cost, transport cost, advance paid tracking
 - Balance payable computation
-- 166-entry Tomato demo scenario included
+- 166-worker-day Tomato demo scenario included
 
 ### 💸 Expense Ledger
-- 19 expense categories (Seeds, Fertilizer, Pesticide, Labour, Diesel, etc.)
+- 21 expense categories (Seeds, Fertilizer, Pesticide, Labour, Diesel, etc.)
 - Vendor tracking, payment status (Paid / Pending / Partial)
 - Receipt URL attachment support
 
@@ -216,11 +216,11 @@ Click **"Load Tomato Demo"** on the dashboard to load a realistic Tomato farming
 | Metric | Value |
 |--------|-------|
 | Total Harvest | 1,542 boxes |
-| Harvest Batches | 12 |
-| Labour Entries | 166 |
-| Total Workers | ~2,490 worker-days |
-| Gross Sales | ₹2,80,000+ |
-| Net Profit | ~₹81,000 |
+| Harvest Batches | 18 |
+| Labour Records | 3 (166 worker-days total) |
+| Total Workers | 166 worker-days |
+| Gross Sales | ₹1,93,060 |
+| Net Profit | ~₹36,860 |
 | Commission Rate | 10% |
 
 This demonstrates all calculations including partial payments, pending balances, and food costs.
@@ -229,7 +229,7 @@ This demonstrates all calculations including partial payments, pending balances,
 
 ## 🧮 Financial Calculation Engine
 
-All arithmetic is implemented in [`src/lib/calculations.ts`](src/lib/calculations.ts) using **integer paise** to avoid floating-point drift:
+All arithmetic is implemented in [`src/lib/calculations.ts`](src/lib/calculations.ts) using deterministic **paise rounding** to avoid floating-point drift:
 
 ```
 Gross Sales    = Boxes × Price Per Box
@@ -245,7 +245,7 @@ Profit Margin  = (Net P&L / Total Revenue) × 100
 10% of ₹1,40,000 = ₹14,000 ✅
 ```
 
-Run `npm test` to validate all 15+ financial test cases.
+Run `npm test` to validate the whole financial engine (5 test suites, 25+ assertions).
 
 ---
 

@@ -23,7 +23,6 @@ import {
   FileText,
   AlertTriangle,
   ArrowRight,
-  Sparkles,
 } from 'lucide-react';
 import { DEMO_WEATHER } from '@/lib/demo-data';
 

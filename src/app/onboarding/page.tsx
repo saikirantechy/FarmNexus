@@ -6,15 +6,8 @@ import { useLanguage, LANGUAGE_OPTIONS } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
 import { LanguageCode } from '@/types';
 import {
-  Sprout,
-  Globe,
-  User,
-  MapPin,
-  Calendar,
-  Layers,
   ArrowRight,
   Sparkles,
-  CheckCircle2,
 } from 'lucide-react';
 
 export default function OnboardingPage() {
@@ -26,11 +19,11 @@ export default function OnboardingPage() {
   const [selectedLang, setSelectedLang] = useState<LanguageCode>(language);
   const [farmerName, setFarmerName] = useState('Ramesh Patel');
   const [farmName, setFarmName] = useState('My Tomato Farm');
-  const [village, setVillage] = useState('Vemagal');
+  const [village] = useState('Vemagal');
   const [district, setDistrict] = useState('Kolar');
   const [state, setState] = useState('Karnataka');
   const [cropName, setCropName] = useState('Tomato');
-  const [variety, setVariety] = useState('US 440 Hybrid');
+  const [variety] = useState('US 440 Hybrid');
   const [acreage, setAcreage] = useState('2.0');
   const [plantingDate, setPlantingDate] = useState(
     new Date().toISOString().split('T')[0]

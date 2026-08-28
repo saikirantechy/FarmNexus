@@ -10,9 +10,6 @@ import {
   Droplets,
   AlertTriangle,
   Info,
-  Sun,
-  CloudLightning,
-  ShieldCheck,
 } from 'lucide-react';
 
 export default function WeatherPage() {

@@ -5,7 +5,6 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
 import { ExpenseCategory, CommissionType } from '@/types';
 import {
-  calculateCommission,
   calculateHarvestGross,
   calculateLabourCost,
   calculateSaleDeductions,
@@ -18,7 +17,6 @@ import {
   Users,
   TrendingUp,
   CheckCircle2,
-  Calendar,
   Sparkles,
 } from 'lucide-react';
 
@@ -85,8 +83,8 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
   const [sBoxes, setSBoxes] = useState<string>('50');
   const [sPrice, setSPrice] = useState<string>('260');
   const [sBuyer, setSBuyer] = useState<string>('Local APMC Trader');
-  const [sMarket, setSMarket] = useState<string>('APMC Mandi');
-  const [sCommType, setSCommType] = useState<CommissionType>('percentage');
+  const [sMarket] = useState<string>('APMC Mandi');
+  const [sCommType] = useState<CommissionType>('percentage');
   const [sCommRate, setSCommRate] = useState<string>('10');
   const [sPaymentStatus, setSPaymentStatus] = useState<'paid' | 'pending'>('paid');
 

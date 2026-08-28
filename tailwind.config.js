@@ -63,5 +63,14 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('tailwindcss-animate'),
+    function ({ addUtilities }) {
+      addUtilities({
+        '.pb-safe': {
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        },
+      });
+    },
+  ],
 }

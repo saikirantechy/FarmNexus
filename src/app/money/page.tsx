@@ -14,10 +14,6 @@ import {
   Plus,
   Trash2,
   PieChart,
-  Layers,
-  CheckCircle,
-  Clock,
-  ArrowUpRight,
   ShieldCheck,
   Calculator,
 } from 'lucide-react';
@@ -56,7 +52,6 @@ export default function MoneyPage() {
     costPerBox,
     costPerKg,
     averageSellingPricePerBox,
-    totalHarvestBoxes,
   } = financialSummary;
 
   return (

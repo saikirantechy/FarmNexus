@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { calculateLabourCost, calculateSaleDeductions, calculateHarvestGross, formatRupee } from '@/lib/calculations';
-import { Calculator, ChevronRight, CircleDollarSign, Sparkles } from 'lucide-react';
+import { Calculator, ChevronRight, Sparkles } from 'lucide-react';
 
 const number = (value: string) => Math.max(0, Number(value) || 0);
 

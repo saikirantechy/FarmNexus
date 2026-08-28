@@ -2,30 +2,23 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useLanguage, LANGUAGE_OPTIONS } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
 import {
   Globe,
   CloudSun,
-  Bell,
-  Sparkles,
   WifiOff,
   RefreshCw,
   ChevronDown,
   Sprout,
-  BarChart3,
   TrendingUp,
 } from 'lucide-react';
 
 export function Header() {
   const { t, language, setLanguage } = useLanguage();
-  const { activeFarm, activeCrop, isOffline, resetToDemoData, notifications } = useFarmStore();
-  const pathname = usePathname();
+  const { activeFarm, activeCrop, isOffline, resetToDemoData } = useFarmStore();
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
-
-  const unreadNotifs = notifications.filter((n) => !n.read).length;
 
   return (
     <header className="sticky top-0 z-40 bg-emerald-900 text-white shadow-md">
@@ -139,8 +132,8 @@ export function Header() {
             <h3 className="font-bold text-lg text-gray-900">Load Tomato Demo Farm?</h3>
             <p className="text-xs text-gray-600 mt-1 leading-relaxed">
               This will populate real demonstration data for a 2-acre tomato farm with{' '}
-              <strong>1,542 harvest boxes</strong>, <strong>166 labour entries</strong>,{' '}
-              <strong>₹34,560 upcoming sales</strong>, and a calculated profit balance.
+              <strong>1,542 harvest boxes</strong>, <strong>166 worker-days of labour</strong>,{' '}
+              <strong>₹34,560 upcoming sales</strong>, and a ₹36,860 profit balance.
             </p>
             <div className="mt-4 flex gap-2.5">
               <button

@@ -8,17 +8,12 @@ import {
   FileText,
   Download,
   Printer,
-  Calendar,
-  Layers,
-  IndianRupee,
-  Package,
-  Users,
   CheckCircle2,
 } from 'lucide-react';
 
 export default function ReportsPage() {
   const { t } = useLanguage();
-  const { activeFarm, activeCrop, harvests, labourRecords, expenses, sales, financialSummary } =
+  const { activeFarm, activeCrop, harvests, labourRecords, expenses, financialSummary } =
     useFarmStore();
 
   const [reportType, setReportType] = useState<'season' | 'daily' | 'weekly' | 'crop'>('season');

@@ -3,20 +3,15 @@
 import React, { useState } from 'react';
 import { useLanguage, LANGUAGE_OPTIONS } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
-import { LanguageCode } from '@/types';
 import {
   Settings,
   Globe,
   User,
-  MapPin,
   RefreshCw,
   Trash2,
-  Download,
   Wifi,
   WifiOff,
   CheckCircle2,
-  ShieldCheck,
-  Sprout,
 } from 'lucide-react';
 
 export default function SettingsPage() {

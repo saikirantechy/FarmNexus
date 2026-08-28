@@ -4,8 +4,7 @@ import React from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
 import { formatRupee } from '@/lib/calculations';
-import { BadgeIndianRupee, CheckCircle, Clock, Plus, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { BadgeIndianRupee, CheckCircle, Plus } from 'lucide-react';
 
 interface UpcomingSalesCardProps {
   onOpenAddSale?: () => void;
@@ -55,7 +54,7 @@ export function UpcomingSalesCard({ onOpenAddSale }: UpcomingSalesCardProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {pendingSales.map((s, idx) => (
+          {pendingSales.map((s) => (
             <div
               key={s.id}
               className="p-3 bg-gray-50/80 hover:bg-blue-50/40 rounded-xl border border-gray-100 transition flex items-center justify-between gap-3"

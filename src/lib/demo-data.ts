@@ -339,6 +339,8 @@ export const DEMO_WEATHER: WeatherData = {
     { day: 'Sun', tempMax: 30, tempMin: 21, rainProb: 40, icon: 'cloud-sun', condition: 'Partly Sunny' },
     { day: 'Mon', tempMax: 31, tempMin: 22, rainProb: 20, icon: 'sun', condition: 'Sunny' },
     { day: 'Tue', tempMax: 31, tempMin: 22, rainProb: 15, icon: 'sun', condition: 'Clear' },
+    { day: 'Wed', tempMax: 32, tempMin: 23, rainProb: 10, icon: 'sun', condition: 'Sunny' },
+    { day: 'Thu', tempMax: 30, tempMin: 21, rainProb: 35, icon: 'cloud-sun', condition: 'Partly Sunny' },
   ],
   agriculturalAlerts: [
     {

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
-import { formatRupee, calculateHarvestGross } from '@/lib/calculations';
+import { formatRupee } from '@/lib/calculations';
 import { QuickAddModal } from '@/components/layout/QuickAddModal';
 import {
   Package,
@@ -11,10 +11,7 @@ import {
   Plus,
   Trash2,
   Filter,
-  Layers,
-  TrendingUp,
   CheckCircle,
-  Calendar,
 } from 'lucide-react';
 
 export default function HarvestPage() {
@@ -246,7 +243,7 @@ export default function HarvestPage() {
             </div>
           ) : (
             <div className="space-y-2.5">
-              {pendingSales.map((s, idx) => (
+              {pendingSales.map((s) => (
                 <div
                   key={s.id}
                   className="p-3.5 bg-gray-50 hover:bg-blue-50/50 rounded-xl border border-gray-200/80 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"

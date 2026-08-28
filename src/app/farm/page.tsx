@@ -8,14 +8,7 @@ import { CropStage } from '@/types';
 import {
   Sprout,
   MapPin,
-  Layers,
-  Droplets,
-  Calendar,
   Plus,
-  CheckCircle2,
-  Clock,
-  Sparkles,
-  TrendingUp,
   X,
   Warehouse,
   CalendarDays,
@@ -46,9 +39,8 @@ const SUPPORTED_CROPS = [
 ];
 
 export default function FarmPage() {
-  const { t } = useLanguage();
-  const { farms, activeFarm, cropCycles, activeCrop, addFarm, addCropCycle, financialSummary } =
-    useFarmStore();
+  useLanguage();
+  const { activeFarm, activeCrop, addCropCycle, financialSummary } = useFarmStore();
 
   const [addCropModalOpen, setAddCropModalOpen] = useState(false);
   const [newCropName, setNewCropName] = useState('Tomato');

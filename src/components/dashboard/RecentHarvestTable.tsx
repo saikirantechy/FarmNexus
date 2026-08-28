@@ -82,7 +82,7 @@ export function RecentHarvestTable({ onOpenAdd, limit = 5 }: RecentHarvestTableP
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {displayHarvests.map((h, idx) => {
+              {displayHarvests.map((h) => {
                 const estGross = h.estimatedGross || (h.boxes * (h.estimatedPricePerBox || 240));
                 return (
                   <tr key={h.id} className="hover:bg-gray-50/80 transition">

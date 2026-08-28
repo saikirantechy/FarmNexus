@@ -3,14 +3,12 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { DEMO_MANDI_PRICES } from '@/lib/demo-data';
-import { MandiPriceItem } from '@/types';
-import { TrendingUp, TrendingDown, MapPin, Search, ArrowRight, ShieldCheck, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, MapPin, Search, ShieldCheck } from 'lucide-react';
 
 export default function MandiPricesPage() {
   const { t } = useLanguage();
-  const [selectedCrop, setSelectedCrop] = useState('Tomato');
   const [searchQuery, setSearchQuery] = useState('');
-  const [prices, setPrices] = useState<MandiPriceItem[]>(DEMO_MANDI_PRICES);
+  const prices = DEMO_MANDI_PRICES;
 
   const filteredPrices = prices.filter(
     (p) =>

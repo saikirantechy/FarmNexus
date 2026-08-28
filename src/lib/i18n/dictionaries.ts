@@ -239,7 +239,7 @@ export const dictionaries: Record<LanguageCode, TranslationDictionary> = {
     enterAcreage: 'Total Acreage (Acres)',
     plantingDate: 'Planting / Sowing Date',
     loadDemoData: '⚡ 1-Click Load Realistic Tomato Demo (1,542 Boxes)',
-    loadDemoDesc: 'Loads real harvest batches, 166 labour entries, upcoming sales & full P&L balance instantly.',
+    loadDemoDesc: 'Loads a realistic tomato season instantly — 1,542 boxes, 166 worker-days of labour, ₹34,560 pending sales & a ₹36,860 profit balance.',
     getStarted: 'Go to Farm Dashboard',
   },
   hi: {
@@ -349,7 +349,7 @@ export const dictionaries: Record<LanguageCode, TranslationDictionary> = {
     enterAcreage: 'कुल रकबा (एकड़)',
     plantingDate: 'रोपाई/बुवाई की तारीख',
     loadDemoData: '⚡ 1-क्लिक टमाटर डेमो लोड करें (1,542 पेटियां)',
-    loadDemoDesc: 'पूरा हिसाब, 166 मजदूर, ₹34,560 बाकी बिक्री और ₹81,000 मुनाफे का नमूना तुरंत देखें।',
+    loadDemoDesc: 'पूरा हिसाब — 1,542 पेटियाँ, 166 श्रमिक-दिवस, ₹34,560 लंबित बिक्री और ₹36,860 का नफा तुरंत देखें।',
     getStarted: 'डैशबोर्ड पर जाएं',
   },
   kn: {
@@ -459,7 +459,7 @@ export const dictionaries: Record<LanguageCode, TranslationDictionary> = {
     enterAcreage: 'ಒಟ್ಟು ವಿಸ್ತೀರ್ಣ (ಎಕರೆ)',
     plantingDate: 'ನಾಟಿ ದಿನಾಂಕ',
     loadDemoData: '⚡ 1-ಕ್ಲಿಕ್ ಟೊಮ್ಯಾಟೊ ಡೆಮೋ ಲೋಡ್ ಮಾಡಿ (1,542 ಬಾಕ್ಸ್)',
-    loadDemoDesc: 'ನಿಜವಾದ ಕೊಯ್ಲು, 166 ಆಳುಗಳ ವಿವರ, ₹34,560 ಬಾಕಿ ಮೊತ್ತ ಮತ್ತು ₹81,000 ಲಾಭದ ಡೆಮೋ ನೋಡಿ.',
+    loadDemoDesc: 'ನೈಜ ಕೊಯ್ಲು — 1,542 ಬಾಕ್ಸ್, 166 ಕೂಲಿ-ದಿನಗಳು, ₹34,560 ಬಾಕಿ ಮಾರಾಟ ಮತ್ತು ₹36,860 ಲಾಭದ ಉದಾಹರಣೆ ನೋಡಿ.',
     getStarted: 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಹೋಗಿ',
   },
   mr: {
@@ -569,7 +569,7 @@ export const dictionaries: Record<LanguageCode, TranslationDictionary> = {
     enterAcreage: 'एकूण क्षेत्र (एकर)',
     plantingDate: 'लागवड दिनांक',
     loadDemoData: '⚡ १-क्लिक टोमॅटो डेमो लोड करा (१,५४२ पेट्या)',
-    loadDemoDesc: 'प्रत्यक्ष तोडणी, १६६ मजुरांची नोंद, ₹३४,५६० बाकी रक्कम आणि ₹८१,००० नफ्याचा नमुना त्वरित पहा.',
+    loadDemoDesc: 'प्रत्यक्ष तोडणी — १,५४२ पेट्या, १६६ दिवसांचे श्रम, ₹३४,५६० बाकी विक्री आणि ₹३६,८६० नफ्याचा नमुना त्वरित पहा.',
     getStarted: 'डॅशबोर्डवर जा',
   },
   te: {
@@ -679,7 +679,7 @@ export const dictionaries: Record<LanguageCode, TranslationDictionary> = {
     enterAcreage: 'మొత్తం విస్తీర్ణం (ఎకరాలు)',
     plantingDate: 'నాటు వేసిన తేదీ',
     loadDemoData: '⚡ 1-క్లిక్ టమాటా డెమో లోడ్ చేయండి (1,542 పెట్టెలు)',
-    loadDemoDesc: 'నిజమైన కోత, 166 మంది కూలీలు, ₹34,560 రావలసిన బాకీలు మరియు ₹81,000 లాభం చూడండి.',
+    loadDemoDesc: 'నిజమైన కోత, 1,542 పెట్టెలు, 166 కూలీ-రోజులు, ₹34,560 రావలసిన అమ్మకాలు మరియు ₹36,860 లాభం చూడండి.',
     getStarted: 'డ్యాష్‌బోర్డ్‌కు వెళ్లండి',
   },
   ta: {
@@ -789,7 +789,7 @@ export const dictionaries: Record<LanguageCode, TranslationDictionary> = {
     enterAcreage: 'மொத்த பரப்பளவு (ஏக்கர்)',
     plantingDate: 'நடவு தேதி',
     loadDemoData: '⚡ 1-கிளிக் தக்காளி டெமோ ஏற்றவும் (1,542 பெட்டிகள்)',
-    loadDemoDesc: 'உண்மையான அறுவடை, 166 தொழிலாளர்கள், ₹34,560 பாக்கி மற்றும் ₹81,000 லாப மாதிரி காண்க.',
+    loadDemoDesc: 'உண்மையான அறுவடை, 1,542 பெட்டிகள், 166 கூலி-நாட்கள், ₹34,560 நிலுவை விற்பனை மற்றும் ₹36,860 லாபம் காண்க.',
     getStarted: 'டாஷ்போர்டுக்கு செல்க',
   },
 };

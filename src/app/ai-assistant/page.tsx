@@ -7,10 +7,7 @@ import { FarmerVoiceHelp } from '@/components/ai/FarmerVoiceHelp';
 import { CropDoctorModal } from '@/components/ai/CropDoctorModal';
 import {
   Bot,
-  Sparkles,
-  Leaf,
   MessageSquare,
-  HelpCircle,
   ShieldAlert,
   Send,
   Camera,

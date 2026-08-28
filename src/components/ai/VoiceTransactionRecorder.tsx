@@ -5,16 +5,14 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
 import { parseFarmerVoiceText } from '@/lib/ai-service';
 import { ParsedAITransaction, LanguageCode } from '@/types';
-import { formatRupee, calculateHarvestGross, calculateLabourCost } from '@/lib/calculations';
+import { formatRupee, calculateLabourCost } from '@/lib/calculations';
 import {
   Mic,
   MicOff,
   Sparkles,
   CheckCircle2,
-  AlertCircle,
   ArrowRight,
   Send,
-  HelpCircle,
   RotateCcw,
 } from 'lucide-react';
 
@@ -42,7 +40,6 @@ export function VoiceTransactionRecorder() {
   const [isListening, setIsListening] = useState(false);
   const [parsedRecord, setParsedRecord] = useState<ParsedAITransaction | null>(null);
   const [savedSuccessMsg, setSavedSuccessMsg] = useState<string | null>(null);
-  const [speechSupported, setSpeechSupported] = useState(true);
 
   const recognitionRef = useRef<any>(null);
 
@@ -70,8 +67,6 @@ export function VoiceTransactionRecorder() {
       };
 
       recognitionRef.current = recognition;
-    } else {
-      setSpeechSupported(false);
     }
   }, [language]);
 

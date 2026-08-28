@@ -48,7 +48,7 @@ export function BottomNav() {
           <div className="relative -top-5 flex flex-col items-center">
             <button
               onClick={() => setQuickAddOpen(true)}
-              className="w-13 h-13 rounded-full bg-gradient-to-tr from-emerald-600 to-emerald-500 text-white p-3.5 shadow-lg shadow-emerald-700/30 border-4 border-white active:scale-95 transition-transform flex items-center justify-center"
+              className="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-600 to-emerald-500 text-white p-3.5 shadow-lg shadow-emerald-700/30 border-4 border-white active:scale-95 transition-transform flex items-center justify-center"
               aria-label="Quick Add Record"
             >
               <Plus className="w-6 h-6 stroke-[3]" />

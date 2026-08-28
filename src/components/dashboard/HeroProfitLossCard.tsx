@@ -29,7 +29,6 @@ export function HeroProfitLossCard() {
     profitMarginPercent,
     costPerBox,
     averageSellingPricePerBox,
-    totalHarvestBoxes,
     directExpenses,
     totalLabourCost,
     totalCommissions,

@@ -5,15 +5,10 @@ import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { CROP_DISEASES } from '@/lib/ai-service';
 import { CropDiseaseDiagnosis } from '@/types';
 import {
-  Camera,
-  Upload,
-  AlertTriangle,
-  CheckCircle2,
   ShieldAlert,
   Sparkles,
   Leaf,
   Bug,
-  Info,
   X,
 } from 'lucide-react';
 

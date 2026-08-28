@@ -2,23 +2,16 @@
 
 import React from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
-import { useFarmStore } from '@/lib/farm-store';
-import { formatRupee } from '@/lib/calculations';
 import {
   ShieldCheck,
   Users,
   Sprout,
   Package,
   TrendingUp,
-  BarChart3,
-  Globe,
-  Database,
-  Building2,
 } from 'lucide-react';
 
 export default function AdminPage() {
-  const { t } = useLanguage();
-  const { financialSummary } = useFarmStore();
+  useLanguage();
 
   return (
     <div className="space-y-4">

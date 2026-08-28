@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useFarmStore } from '@/lib/farm-store';
 import { FarmTaskType } from '@/types';
-import { AlarmClock, CalendarDays, CheckCircle2, Circle, ListTodo, Plus, Trash2, X } from 'lucide-react';
+import { AlarmClock, CalendarDays, CheckCircle2, Circle, Plus, Trash2, X } from 'lucide-react';
 
 const taskTypes: FarmTaskType[] = ['Irrigation', 'Spraying', 'Scouting', 'Harvest', 'Labour', 'Other'];
 const today = () => new Date().toISOString().slice(0, 10);
