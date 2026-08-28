@@ -6,7 +6,10 @@ import {
   ExpenseRecord,
   Farm,
   FarmFinancialSummary,
+  FarmTask,
   HarvestRecord,
+  InventoryItem,
+  InventoryTransaction,
   LabourRecord,
   NotificationItem,
   SaleRecord,
@@ -41,6 +44,9 @@ interface FarmStoreContextType {
   expenses: ExpenseRecord[];
   sales: SaleRecord[];
   notifications: NotificationItem[];
+  inventoryItems: InventoryItem[];
+  inventoryTransactions: InventoryTransaction[];
+  tasks: FarmTask[];
 
   financialSummary: FarmFinancialSummary;
   isOffline: boolean;
@@ -58,6 +64,14 @@ interface FarmStoreContextType {
   addSale: (record: Omit<SaleRecord, 'id' | 'createdAt'>) => SaleRecord;
   markSaleReceived: (saleId: string) => void;
   deleteSale: (id: string) => void;
+  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'createdAt'>) => InventoryItem;
+  recordInventoryTransaction: (
+    transaction: Omit<InventoryTransaction, 'id' | 'createdAt'>
+  ) => InventoryTransaction;
+  deleteInventoryItem: (id: string) => void;
+  addTask: (task: Omit<FarmTask, 'id' | 'createdAt' | 'completed' | 'completedAt'>) => FarmTask;
+  toggleTaskCompleted: (id: string) => void;
+  deleteTask: (id: string) => void;
   
   addFarm: (farm: Omit<Farm, 'id' | 'createdAt'>) => Farm;
   addCropCycle: (crop: Omit<CropCycle, 'id' | 'createdAt'>) => CropCycle;
@@ -84,6 +98,9 @@ export function FarmStoreProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(DEMO_EXPENSES);
   const [sales, setSales] = useState<SaleRecord[]>(DEMO_SALES);
   const [notifications, setNotifications] = useState<NotificationItem[]>(DEMO_NOTIFICATIONS);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventoryTransactions, setInventoryTransactions] = useState<InventoryTransaction[]>([]);
+  const [tasks, setTasks] = useState<FarmTask[]>([]);
   const [isOffline, setIsOffline] = useState(false);
 
   // Online / Offline listener
@@ -120,6 +137,9 @@ export function FarmStoreProvider({ children }: { children: React.ReactNode }) {
         if (parsed.expenses) setExpenses(parsed.expenses);
         if (parsed.sales) setSales(parsed.sales);
         if (parsed.notifications) setNotifications(parsed.notifications);
+        if (parsed.inventoryItems) setInventoryItems(parsed.inventoryItems);
+        if (parsed.inventoryTransactions) setInventoryTransactions(parsed.inventoryTransactions);
+        if (parsed.tasks) setTasks(parsed.tasks);
       }
     } catch (e) {
       console.warn('Failed to load storage data, using defaults', e);
@@ -143,6 +163,9 @@ export function FarmStoreProvider({ children }: { children: React.ReactNode }) {
         expenses,
         sales,
         notifications,
+        inventoryItems,
+        inventoryTransactions,
+        tasks,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
@@ -160,6 +183,9 @@ export function FarmStoreProvider({ children }: { children: React.ReactNode }) {
     expenses,
     sales,
     notifications,
+    inventoryItems,
+    inventoryTransactions,
+    tasks,
   ]);
 
   const activeFarm = useMemo(() => {
@@ -270,6 +296,72 @@ export function FarmStoreProvider({ children }: { children: React.ReactNode }) {
     setSales((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const addInventoryItem = (item: Omit<InventoryItem, 'id' | 'createdAt'>) => {
+    const newItem: InventoryItem = {
+      ...item,
+      id: `inventory-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setInventoryItems((prev) => [newItem, ...prev]);
+    return newItem;
+  };
+
+  const recordInventoryTransaction = (
+    transaction: Omit<InventoryTransaction, 'id' | 'createdAt'>
+  ) => {
+    const newTransaction: InventoryTransaction = {
+      ...transaction,
+      id: `inventory-tx-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    const quantityChange = transaction.type === 'usage' ? -transaction.quantity : transaction.quantity;
+    setInventoryItems((prev) =>
+      prev.map((item) =>
+        item.id === transaction.inventoryItemId
+          ? {
+              ...item,
+              currentQuantity: Math.max(0, item.currentQuantity + quantityChange),
+              supplier: transaction.supplier || item.supplier,
+            }
+          : item
+      )
+    );
+    setInventoryTransactions((prev) => [newTransaction, ...prev]);
+    return newTransaction;
+  };
+
+  const deleteInventoryItem = (id: string) => {
+    setInventoryItems((prev) => prev.filter((item) => item.id !== id));
+    setInventoryTransactions((prev) => prev.filter((transaction) => transaction.inventoryItemId !== id));
+  };
+
+  const addTask = (task: Omit<FarmTask, 'id' | 'createdAt' | 'completed' | 'completedAt'>) => {
+    const newTask: FarmTask = {
+      ...task,
+      id: `task-${Date.now()}`,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+    setTasks((prev) => [newTask, ...prev]);
+    return newTask;
+  };
+
+  const toggleTaskCompleted = (id: string) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === id
+          ? {
+              ...task,
+              completed: !task.completed,
+              completedAt: !task.completed ? new Date().toISOString() : undefined,
+            }
+          : task
+      )
+    );
+  };
+
+  const deleteTask = (id: string) => setTasks((prev) => prev.filter((task) => task.id !== id));
+
   const addFarm = (farmData: Omit<Farm, 'id' | 'createdAt'>) => {
     const newFarm: Farm = {
       ...farmData,
@@ -307,6 +399,9 @@ export function FarmStoreProvider({ children }: { children: React.ReactNode }) {
     setExpenses(DEMO_EXPENSES);
     setSales(DEMO_SALES);
     setNotifications(DEMO_NOTIFICATIONS);
+    setInventoryItems([]);
+    setInventoryTransactions([]);
+    setTasks([]);
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -320,6 +415,9 @@ export function FarmStoreProvider({ children }: { children: React.ReactNode }) {
     setExpenses([]);
     setSales([]);
     setNotifications([]);
+    setInventoryItems([]);
+    setInventoryTransactions([]);
+    setTasks([]);
   };
 
   return (
@@ -339,6 +437,11 @@ export function FarmStoreProvider({ children }: { children: React.ReactNode }) {
         expenses: filteredExpenses,
         sales: filteredSales,
         notifications,
+        inventoryItems: inventoryItems.filter((item) => item.farmId === activeFarmId),
+        inventoryTransactions: inventoryTransactions.filter(
+          (transaction) => transaction.farmId === activeFarmId
+        ),
+        tasks: tasks.filter((task) => task.farmId === activeFarmId),
         financialSummary,
         isOffline,
         addHarvest,
@@ -350,6 +453,12 @@ export function FarmStoreProvider({ children }: { children: React.ReactNode }) {
         addSale,
         markSaleReceived,
         deleteSale,
+        addInventoryItem,
+        recordInventoryTransaction,
+        deleteInventoryItem,
+        addTask,
+        toggleTaskCompleted,
+        deleteTask,
         addFarm,
         addCropCycle,
         updateUserProfile,

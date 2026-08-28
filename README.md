@@ -1,83 +1,346 @@
-# 🌱 FarmNexus — Know Your Farm. Know Your Money.
+<div align="center">
 
-**FarmNexus** is a production-ready, multilingual, mobile-first **Farm Business Operating System** built for farmers to answer the most critical question:
+# 🌾 FarmNexus
 
-> **“After all my farming expenses, harvest, commissions, labour and sales, am I actually making a profit or a loss?”**
+### Know Your Farm. Know Your Money.
 
----
+**A mobile-first, multilingual Farm Business Operating System for Indian farmers**
 
-## 🚀 Key Modules & Capabilities
+[![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwind-css)](https://tailwindcss.com/)
+[![Vitest](https://img.shields.io/badge/Tests-Vitest-6e9f18?logo=vitest)](https://vitest.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-1. **Deterministic P&L Financial Engine**:
-   - Strictly eliminates floating-point errors using exact integer/decimal minor-unit arithmetic.
-   - Clear accounting distinction between **Revenue** (realized crop sales), **Expenses** (direct inputs + labour + commissions), **Receivables** (uncollected buyer payments), **Payables** (unpaid worker wages/vendor dues), and **Net Profit/Loss**.
-   - Computes unit economics: *Cost per box*, *Cost per kg*, *Average selling price*, and *Profit margin %*.
-
-2. **Multilingual Architecture (6 Languages)**:
-   - Full native localization in **English**, **हिन्दी (Hindi)**, **ಕನ್ನಡ (Kannada)**, **मराठी (Marathi)**, **తెలుగు (Telugu)**, and **தமிழ் (Tamil)**.
-
-3. **AI Voice & Text Assistant**:
-   - Web Speech API integration in all 6 Indian languages.
-   - Natural language transaction parser (e.g., *"Today 5 workers came and picked 42 boxes. Rate was 50 rupees."* $\rightarrow$ Automatically extracts Labour and Harvest records with a conversational confirmation step).
-
-4. **AI Crop Doctor & Disease Diagnosis**:
-   - Leaf symptom photo diagnosis for Early Blight, Late Blight, Tomato Leaf Curl Virus, Fruit Borer, and Blossom End Rot (Calcium deficiency).
-   - Biological remedies, chemical controls with Pre-Harvest Interval (PHI) safety reminders, and mandatory local KVK / agriculture expert advisory disclaimers.
-
-5. **Realistic Pre-Loaded Tomato Demo Dataset**:
-   - 1-Click loading of a complete 2-acre Tomato farm model with **1,542 boxes harvest**, **166 labour working-member entries**, upcoming sales ($68 \times ₹270 = ₹18,360$, $110 \times ₹70 = ₹7,700$, $50 \times ₹90 = ₹4,500$, $80 \times ₹50 = ₹4,000$ totaling $308\text{ boxes} = ₹34,560$), and a **₹81,000 net profit balance**.
-
-6. **APMC Mandi Market Prices**:
-   - Daily wholesale prices, price trends, and modal prices per box and per kg across nearby markets (Kolar, Azadpur, Vashi, Madanapalle, Pimpalgaon).
-
-7. **Agri-Weather Forecast & Alerts**:
-   - 5-day weather forecast with rain probabilities and crop-specific agronomic warnings (e.g. *"Heavy rain expected tomorrow. Check drainage in tomato fields"*).
-
-8. **Exportable Reports & FPO Admin Dashboard**:
-   - Daily, weekly, crop lifecycle, and season P&L reports with 1-click **CSV** and **Printable PDF** export.
-   - Dedicated FPO Admin dashboard for aggregate farmer counts, acreage, and supply insights.
+</div>
 
 ---
 
-## 🛠️ Tech Stack
+## 📖 Overview
 
-- **Framework**: Next.js 14 (App Router) + React 18 + TypeScript
-- **Styling**: Tailwind CSS + Farmer-First Earthy Design System
-- **Icons**: Lucide React
-- **Voice & Speech**: Web Speech API (`hi-IN`, `kn-IN`, `mr-IN`, `te-IN`, `ta-IN`, `en-IN`)
-- **State & Offline Storage**: React Context + IndexedDB / LocalStorage Persistence
-- **Testing**: Vitest automated test suite for financial calculations
+FarmNexus is a **production-ready farm management platform** built to answer every farmer's most important question:
+
+> **"After all my farming expenses, harvest, commissions, labour and sales — am I actually making a profit or a loss?"**
+
+It is **not** a generic agriculture news or advisory app. FarmNexus is a **real financial operating system** that helps farmers track every rupee in and out of their farm business.
 
 ---
 
-## ⚡ Quick Start
+## ✨ Features
 
-### 1. Install Dependencies
+### 💰 Financial Intelligence
+- **Real-time Profit & Loss Dashboard** — instant net P&L after commissions, labour, and deductions
+- **Zero floating-point errors** — all arithmetic uses integer minor units (paise) to ensure ₹68 × 270 = ₹18,360 every time
+- **Gross → Net calculation** — Sales − Commission − Transport − Other Deductions = Net Amount
+- **Receivables & Payables tracking** — who owes you money, who you owe
+
+### 🌾 Harvest Management
+- Record harvest batches by boxes, weight, grade (A/B/C/Mixed)
+- Multi-field, multi-crop-cycle support
+- Estimated vs actual price tracking
+
+### 👷 Labour Management
+- Daily wage recording with male/female worker counts
+- Food cost, transport cost, advance paid tracking
+- Balance payable computation
+- 166-entry Tomato demo scenario included
+
+### 💸 Expense Ledger
+- 19 expense categories (Seeds, Fertilizer, Pesticide, Labour, Diesel, etc.)
+- Vendor tracking, payment status (Paid / Pending / Partial)
+- Receipt URL attachment support
+
+### 🏪 Sales & Commission Tracking
+- Three commission models: Percentage, Per Box, Fixed Amount
+- Buyer name, APMC market, transport cost, other deductions
+- Payment status tracking with pending balance
+
+### 📦 Inventory Management *(New)*
+- Track seeds, fertilizers, pesticides, packaging by quantity
+- Low-stock threshold alerts
+- Purchase / Usage / Adjustment transactions
+- Per-farm inventory isolation
+
+### ✅ Task Manager *(New)*
+- Schedule farm tasks: Irrigation, Spraying, Scouting, Harvest, Labour
+- Due-date reminders
+- Mark complete / incomplete
+
+### 🤖 AI Assistant
+- **Voice Transactions**: Speak naturally — "Today 50 boxes harvested at ₹280" — auto-extracted
+- **AI Crop Doctor**: Symptom-based disease diagnosis with organic and chemical remedies
+- Multi-language NLP parsing (English, Hindi, Kannada, Marathi, Telugu, Tamil)
+
+### 📊 Reports & Export
+- Full financial report with P&L breakdown
+- Unit economics (cost per box, revenue per box)
+- CSV / PDF export ready
+
+### 🏪 Mandi Prices
+- Live APMC market price simulation
+- Price trends (up/down/stable) with percentage change
+- Distance-sorted market list
+
+### 🌦️ Agricultural Weather
+- 7-day forecast with rain probability
+- Crop-specific alerts (spray window, harvest delay, frost warning)
+
+### 👥 FPO Admin Dashboard
+- Multi-farmer overview for Farmer Producer Organisations
+- Aggregate P&L, pending payments, activity summary
+
+---
+
+## 🌍 Multilingual Support
+
+| Language | Code | Status |
+|----------|------|--------|
+| English | `en` | ✅ Complete |
+| Hindi | `hi` | ✅ Complete |
+| Kannada | `kn` | ✅ Complete |
+| Marathi | `mr` | ✅ Complete |
+| Telugu | `te` | ✅ Complete |
+| Tamil | `ta` | ✅ Complete |
+
+Switch language from the header — all UI labels, alerts, and navigation update instantly.
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- npm 9+
+
+### Installation
+
 ```bash
+git clone https://github.com/saikirantechy/FarmNexus.git
+cd FarmNexus
 npm install
 ```
 
-### 2. Run Financial Unit Tests
+### Development
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Production Build
+
+```bash
+npm run build
+npm run start
+```
+
+### Run Tests
+
 ```bash
 npm test
 ```
 
-### 3. Start Development Server
-```bash
-npm run dev
+---
+
+## 🗂️ Project Structure
+
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+FarmNexus/
+├── src/
+│   ├── app/                        # Next.js App Router pages
+│   │   ├── page.tsx                # Root redirect → /dashboard
+│   │   ├── layout.tsx              # App shell with providers
+│   │   ├── globals.css             # Global styles
+│   │   ├── dashboard/              # P&L overview dashboard
+│   │   ├── harvest/                # Harvest logging
+│   │   ├── money/                  # Expenses, labour, sales
+│   │   ├── inventory/              # Input stock management
+│   │   ├── tasks/                  # Farm task scheduler
+│   │   ├── ai-assistant/           # Voice & crop doctor AI
+│   │   ├── mandi-prices/           # APMC market prices
+│   │   ├── weather/                # Agricultural weather
+│   │   ├── reports/                # Financial reports & export
+│   │   ├── farm/                   # Farm & crop cycle setup
+│   │   ├── calculator/             # Standalone profit calculator
+│   │   ├── onboarding/             # New user setup flow
+│   │   ├── settings/               # User profile & preferences
+│   │   ├── admin/                  # FPO admin overview
+│   │   └── farm-bot/               # AI farm bot (experimental)
+│   │
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── Header.tsx          # Top bar with lang switcher & notifications
+│   │   │   ├── BottomNav.tsx       # Mobile bottom navigation
+│   │   │   └── QuickAddModal.tsx   # Quick add sheet (harvest/expense/sale)
+│   │   ├── dashboard/
+│   │   │   ├── HeroProfitLossCard.tsx  # Big P&L hero card
+│   │   │   ├── StatCard.tsx            # Summary stat cards
+│   │   │   ├── RecentHarvestTable.tsx  # Latest harvest entries
+│   │   │   └── UpcomingSalesCard.tsx   # Pending receivables
+│   │   └── ai/
+│   │       ├── VoiceTransactionRecorder.tsx  # Web Speech API recorder
+│   │       └── CropDoctorModal.tsx           # Disease diagnosis UI
+│   │
+│   ├── lib/
+│   │   ├── farm-store.tsx          # Global React state & LocalStorage sync
+│   │   ├── calculations.ts         # Deterministic financial engine
+│   │   ├── ai-service.ts           # NLP transaction parser & crop disease KB
+│   │   ├── demo-data.ts            # Tomato demo dataset (1,542 boxes)
+│   │   └── i18n/
+│   │       ├── dictionaries.ts     # 6-language translation strings
+│   │       └── LanguageContext.tsx # Language provider
+│   │
+│   └── types/
+│       └── index.ts                # All TypeScript interfaces & types
+│
+├── tests/
+│   └── financial-calculations.test.ts  # Vitest unit tests for P&L engine
+│
+├── public/
+│   └── manifest.json               # PWA manifest
+│
+├── .env.example                    # Environment variable template
+├── next.config.mjs
+├── tailwind.config.js
+├── tsconfig.json
+└── package.json
+```
 
 ---
 
-## 🧪 Mathematical Test Suite
+## 🍅 Tomato Demo Dataset
 
-The deterministic calculations engine is validated by automated Vitest tests in `tests/financial-calculations.test.ts`:
-- $68 \times 270 = ₹18,360$
-- $110 \times 70 = ₹7,700$
-- $50 \times 90 = ₹4,500$
-- $80 \times 50 = ₹4,000$
-- Total Upcoming: $308\text{ boxes} = ₹34,560$
-- 10% Commission on $₹1,40,000 = ₹14,000 \rightarrow \text{Net } ₹1,26,000$
-- Labour: $62 \times 500 = ₹31,000$, $100 \times 350 = ₹35,000$, Food $162 \times 50 = ₹8,100 \rightarrow \text{Total } ₹74,100$
-- P&L: Revenue $₹1,40,000 - \text{Expenses } ₹59,000 = \text{Net Profit } ₹81,000$
+Click **"Load Tomato Demo"** on the dashboard to load a realistic Tomato farming season:
+
+| Metric | Value |
+|--------|-------|
+| Total Harvest | 1,542 boxes |
+| Harvest Batches | 12 |
+| Labour Entries | 166 |
+| Total Workers | ~2,490 worker-days |
+| Gross Sales | ₹2,80,000+ |
+| Net Profit | ~₹81,000 |
+| Commission Rate | 10% |
+
+This demonstrates all calculations including partial payments, pending balances, and food costs.
+
+---
+
+## 🧮 Financial Calculation Engine
+
+All arithmetic is implemented in [`src/lib/calculations.ts`](src/lib/calculations.ts) using **integer paise** to avoid floating-point drift:
+
+```
+Gross Sales    = Boxes × Price Per Box
+Commission     = Gross × Rate% (rounded to nearest paisa)
+Net Amount     = Gross − Commission − Transport − Other Deductions
+Net P&L        = Total Net Sales − Labour Cost − Direct Expenses
+Profit Margin  = (Net P&L / Total Revenue) × 100
+```
+
+**Example (verified by unit tests):**
+```
+68 boxes × ₹270 = ₹18,360 ✅  (not ₹18,359.99)
+10% of ₹1,40,000 = ₹14,000 ✅
+```
+
+Run `npm test` to validate all 15+ financial test cases.
+
+---
+
+## 📱 Mobile-First Design
+
+- Bottom navigation bar for thumb-friendly operation
+- Large tap targets throughout
+- Works offline — all data persisted to **LocalStorage**
+- PWA-ready with `manifest.json`
+
+---
+
+## 🔐 Environment Variables
+
+Copy `.env.example` to `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_APP_NAME` | App display name | FarmNexus |
+| `NEXT_PUBLIC_GEMINI_API_KEY` | Google Gemini API (for AI features) | Optional |
+| `NEXT_PUBLIC_WEATHER_API_KEY` | OpenWeatherMap API key | Optional |
+
+> **Note**: The app works fully offline without any API keys, using built-in NLP and mock data.
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all unit tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+
+# Run in watch mode
+npm run test:watch
+```
+
+Tests cover:
+- Gross sales calculation
+- Commission computation (percentage, per-box, fixed)
+- Net amount after all deductions
+- Labour total cost with food & transport
+- Financial summary aggregation
+- Edge cases (zero values, pending payments)
+
+---
+
+## 🛣️ Roadmap
+
+- [ ] **Real Mandi API** — Connect to Agmarknet / eNAM live prices
+- [ ] **Real Weather API** — OpenWeatherMap / IMD integration
+- [ ] **Gemini AI** — Full LLM-powered transaction extraction
+- [ ] **WhatsApp Bot** — Record transactions via WhatsApp message
+- [ ] **Cloud Sync** — Firebase / Supabase backend
+- [ ] **SMS Alerts** — Payment due reminders via Twilio
+- [ ] **Regional FPO Portal** — Multi-farmer aggregate dashboard
+- [ ] **Photo Receipt** — Camera OCR for expense receipts
+- [ ] **Soil Health** — Nutrient tracking over seasons
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'feat: add your feature'`
+4. Push to the branch: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+## 👨‍🌾 Built For
+
+Indian farmers who deserve **simple, powerful tools** in their own language — tools that treat their farm like the business it is.
+
+> *"Every farmer is a small business owner. FarmNexus is their accounting system."*
+
+---
+
+<div align="center">
+Made with ❤️ for Indian Farmers
+<br/>
+<strong>FarmNexus — Know Your Farm. Know Your Money.</strong>
+</div>

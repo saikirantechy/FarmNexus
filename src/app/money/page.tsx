@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
 import { formatRupee } from '@/lib/calculations';
@@ -18,6 +19,7 @@ import {
   Clock,
   ArrowUpRight,
   ShieldCheck,
+  Calculator,
 } from 'lucide-react';
 
 export default function MoneyPage() {
@@ -72,6 +74,13 @@ export default function MoneyPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/calculator"
+            className="bg-sky-100 hover:bg-sky-200 text-sky-900 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition"
+          >
+            <Calculator className="w-3.5 h-3.5" />
+            <span>Calculator</span>
+          </Link>
           <button
             onClick={() => openAdd('expense')}
             className="bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm flex items-center gap-1.5 transition"

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
 import { CropStage } from '@/types';
@@ -16,6 +17,8 @@ import {
   Sparkles,
   TrendingUp,
   X,
+  Warehouse,
+  CalendarDays,
 } from 'lucide-react';
 
 const CROP_STAGES: CropStage[] = [
@@ -90,13 +93,29 @@ export default function FarmPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setAddCropModalOpen(true)}
-          className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm flex items-center gap-1.5 transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Add Crop Cycle</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/inventory"
+            className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition"
+          >
+            <Warehouse className="w-4 h-4" />
+            <span>Input Stock</span>
+          </Link>
+          <Link
+            href="/tasks"
+            className="bg-sky-100 hover:bg-sky-200 text-sky-900 text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition"
+          >
+            <CalendarDays className="w-4 h-4" />
+            <span>Tasks</span>
+          </Link>
+          <button
+            onClick={() => setAddCropModalOpen(true)}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm flex items-center gap-1.5 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Add Crop Cycle</span>
+          </button>
+        </div>
       </div>
 
       {/* Farm Card */}

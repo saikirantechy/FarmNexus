@@ -103,6 +103,18 @@ export function parseFarmerVoiceText(rawText: string): ParsedAITransaction {
   return result;
 }
 
+/** Plain-language farming help for the in-app voice assistant. */
+export function getAgricultureHelpAnswer(question: string): string {
+  const text = question.toLowerCase();
+  if (/yellow|yellowing|पीला|पीली|ಹಳದಿ|పసుపు|மஞ்சள்/.test(text)) return 'Yellow leaves may be caused by waterlogging, nitrogen shortage, or leaf disease. Check whether the soil is wet for more than a day and whether older leaves have dark circular spots. Improve drainage and take a clear photo to the Crop Doctor or your local KVK before applying any chemical.';
+  if (/pest|insect|worm|borer|whitefly|aphid|कीट|कीड़ा|ಕೀಟ|పురుగు|பூச்சி/.test(text)) return 'First identify the insect and check how many plants are affected. Remove badly damaged leaves or fruits, use yellow sticky traps for sucking pests, and inspect plants in the early morning. Use only a pesticide registered for your crop and pest, follow its label and pre-harvest interval, and ask the local KVK for area-specific advice.';
+  if (/water|irrig|drip|rain|drainage|पानी|सिंचाई|ನೀರು|ನೀರಾವರಿ|నీరు|నీటిపారుదల|நீர்|பாசனம்/.test(text)) return 'Keep soil moisture even, not waterlogged. With drip irrigation, use shorter regular cycles and check soil 5 to 8 cm below the surface before watering again. After rain, clear drainage channels and avoid spraying until foliage dries. Adjust the exact schedule for your crop stage, soil, and weather.';
+  if (/fertili|manure|npk|nutrient|nitrogen|urea|खाद|उर्वरक|ಗೊಬ್ಬರ|ಎರೆವು|ఎరువు|உரம்/.test(text)) return 'Use a soil test and crop stage to decide nutrition. Do not apply fertilizer only because leaves look weak—overuse can damage roots and reduce flowering. Apply smaller balanced doses through the season, keep irrigation regular, and consult your agriculture officer for the correct product and dose.';
+  if (/harvest|pick|storage|market|price|mandi|sale|बाज़ार|मंडी|कटाई|ಕೊಯ್ಲು|ಮಾರುಕಟ್ಟೆ|కోత|మార్కెట్|அறுவடை|சந்தை/.test(text)) return 'Harvest in the cool part of the day, keep produce shaded, sort damaged produce separately, and use clean ventilated crates. Check nearby mandi prices before transport and record transport and commission costs. For long travel, harvest at the maturity stage suitable for the buyer and distance.';
+  if (/seed|sow|plant|transplant|nursery|बीज|रोपाई|ಬೀज|ನೆಡುವ|విత్తన|నాట|விதை|நடவு/.test(text)) return 'Start with quality seed or healthy seedlings, use a clean nursery medium, and transplant only after seedlings are hardened. Keep recommended crop spacing so air moves through the plants. During the first week after transplanting, keep soil moist but never waterlogged.';
+  return 'I can help with crop problems, pests, irrigation, fertilizer planning, planting, harvesting, storage, mandi prices, farm records, and using this app. Tell me the crop name, the problem, and how long it has been happening. For urgent disease outbreaks or chemical decisions, contact your local Krishi Vigyan Kendra, also called KVK, or agriculture officer.';
+}
+
 /**
  * AI Crop Disease Knowledgebase & Diagnostic Expert
  */

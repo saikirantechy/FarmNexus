@@ -17,7 +17,7 @@ export function BottomNav() {
     { href: '/farm', label: t.navFarm, icon: Sprout },
     { href: '/harvest', label: t.navHarvest, icon: Package },
     { href: '/money', label: t.navMoney, icon: IndianRupee },
-    { href: '/ai-assistant', label: t.navAI, icon: Bot },
+    { href: '/farm-bot', label: 'Farm Mitra', icon: Bot },
   ];
 
   return (

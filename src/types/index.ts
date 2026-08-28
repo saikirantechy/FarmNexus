@@ -8,6 +8,18 @@ export type CommissionType = 'percentage' | 'per_box' | 'fixed';
 
 export type PaymentStatus = 'paid' | 'pending' | 'partial';
 
+export type InventoryCategory =
+  | 'Seeds'
+  | 'Fertilizer'
+  | 'Pesticide'
+  | 'Fungicide'
+  | 'Organic input'
+  | 'Packaging'
+  | 'Fuel'
+  | 'Other';
+
+export type InventoryUnit = 'kg' | 'g' | 'litre' | 'ml' | 'piece' | 'bag' | 'packet';
+
 export type ExpenseCategory =
   | 'Seeds'
   | 'Seedlings'
@@ -121,6 +133,48 @@ export interface ExpenseRecord {
   balanceAmount?: number;
   receiptUrl?: string;
   notes?: string;
+  createdAt: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  farmId: string;
+  name: string;
+  category: InventoryCategory;
+  unit: InventoryUnit;
+  currentQuantity: number;
+  lowStockThreshold: number;
+  supplier?: string;
+  createdAt: string;
+}
+
+export interface InventoryTransaction {
+  id: string;
+  farmId: string;
+  inventoryItemId: string;
+  type: 'purchase' | 'usage' | 'adjustment';
+  quantity: number;
+  unitCost?: number;
+  supplier?: string;
+  date: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export type FarmTaskType = 'Irrigation' | 'Spraying' | 'Scouting' | 'Harvest' | 'Labour' | 'Other';
+
+export interface FarmTask {
+  id: string;
+  farmId: string;
+  cropCycleId?: string;
+  title: string;
+  type: FarmTaskType;
+  dueDate: string;
+  reminderEnabled: boolean;
+  reminderTime?: string;
+  notes?: string;
+  completed: boolean;
+  completedAt?: string;
   createdAt: string;
 }
 

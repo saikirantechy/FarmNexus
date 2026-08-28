@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { VoiceTransactionRecorder } from '@/components/ai/VoiceTransactionRecorder';
+import { FarmerVoiceHelp } from '@/components/ai/FarmerVoiceHelp';
 import { CropDoctorModal } from '@/components/ai/CropDoctorModal';
 import {
   Bot,
@@ -103,6 +104,8 @@ export default function AIAssistantPage() {
 
       {/* Voice & NLP Transaction Extractor Component */}
       <VoiceTransactionRecorder />
+
+      <FarmerVoiceHelp />
 
       {/* AI Crop Doctor Promo Banner */}
       <div className="bg-white rounded-3xl p-4 sm:p-5 border border-emerald-800/20 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
