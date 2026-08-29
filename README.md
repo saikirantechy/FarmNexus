@@ -67,17 +67,25 @@ It is **not** a generic agriculture news or advisory app. FarmNexus is a **real 
 - Due-date reminders
 - Mark complete / incomplete
 
+### 🗂️ Farm Operations Hub *(New)*
+- Daily operations workspace with weather, focus tasks, and live summaries
+- **Field activity log** — record Irrigation, Spraying, Ploughing, Seeding, Weeding, Fertilizing, Scouting & Harvest per field
+- Planned vs completed activity status, per-activity cost, and field-level filtering
+- Low-stock inventory alerts, due-today work, and quick access to all operations tools
+
 ### 🤖 AI Assistant
 - **Voice Transactions**: Speak naturally — "Today 50 boxes harvested at ₹280" — auto-extracted
 - **AI Crop Doctor**: Symptom-based disease diagnosis with organic and chemical remedies
 - Multi-language NLP parsing (English, Hindi, Kannada, Marathi, Telugu, Tamil)
 - **Farm Mitra**: a simplified, voice-first helper for crop care, pests, irrigation, fertilizer, harvest, markets, and app use
 - **On-screen chat**: a floating Farm Mitra chat button available on every screen for quick questions
-- **Call Farm Mitra**: a premium browser voice-call screen with green/red call controls, animated agent presence, a dial pad, speech-to-text, and spoken agricultural answers in the six languages currently supported by FarmNexus
+- **Call Farm Mitra**: a premium browser voice-call screen with a full call experience — green/red call controls, two animated avatars (farmer + agent), six speech locales (English default), mixed-language detection with language confirmation, live transcript, low-literacy call states (listening/thinking/speaking/error/offline), mic-permission help and retry, repeat, text fallback, end-of-call summary with suggested next steps, per-device call history, and an editable farmer avatar
+  - **Browser only**: the call runs entirely in the browser via the device microphone and Web Speech API — no phone number or telephony is used, and no audio leaves the device
+  - **Extensible foundation**: `src/lib/farm-mitra-call.ts` exposes reusable pieces (languages, language detection, greeting/confirmation, avatar system, call sessions, history storage, summaries, suggested next actions) so new assistant personas/modules can reuse the same pipeline
 
 ### ✨ Premium Navigation Menu *(New)*
 - A professional **More** menu groups Farm Operations, Insights, and Help & Account tools in one polished, mobile-friendly workspace.
-- Provides direct access to inventory, task calendar, calculator, weather, mandi prices, reports, Farm Mitra, AI Assistant, and settings.
+- Provides direct access to the operations hub, inventory, task calendar, calculator, weather, mandi prices, reports, Farm Mitra, AI Assistant, and settings.
 
 ### 🧮 Digital Farm Calculator *(New)*
 - Automatically calculates crop-sale value, commission, transport, labour, input costs, and estimated profit or loss
@@ -173,6 +181,7 @@ FarmNexus/
 │   │   ├── money/                  # Expenses, labour, sales
 │   │   ├── inventory/              # Input stock management
 │   │   ├── tasks/                  # Farm task scheduler
+│   │   ├── operations/             # Farm operations hub & activity log
 │   │   ├── ai-assistant/           # Voice & crop doctor AI
 │   │   ├── mandi-prices/           # APMC market prices
 │   │   ├── weather/                # Agricultural weather
@@ -182,13 +191,15 @@ FarmNexus/
 │   │   ├── onboarding/             # New user setup flow
 │   │   ├── settings/               # User profile & preferences
 │   │   ├── admin/                  # FPO admin overview
-│   │   └── farm-bot/               # AI farm bot (experimental)
+│   │   ├── farm-bot/               # AI farm bot & voice help
+│   │   ├── call-agent/             # Call Farm Mitra voice screen (premium)
+│   │   └── whiteboard/             # Farm drawing whiteboard
 │   │
 │   ├── components/
 │   │   ├── layout/
 │   │   │   ├── Header.tsx          # Top bar with lang switcher & notifications
-│   │   │   ├── BottomNav.tsx       # Mobile bottom navigation
-│   │   │   └── QuickAddModal.tsx   # Quick add sheet (harvest/expense/sale)
+│   │   │   ├── BottomNav.tsx       # Mobile bottom navigation + More menu
+│   │   │   └── QuickAddModal.tsx   # Quick add sheet (harvest/expense/labour/sale)
 │   │   ├── dashboard/
 │   │   │   ├── HeroProfitLossCard.tsx  # Big P&L hero card
 │   │   │   ├── StatCard.tsx            # Summary stat cards
@@ -196,12 +207,16 @@ FarmNexus/
 │   │   │   └── UpcomingSalesCard.tsx   # Pending receivables
 │   │   └── ai/
 │   │       ├── VoiceTransactionRecorder.tsx  # Web Speech API recorder
-│   │       └── CropDoctorModal.tsx           # Disease diagnosis UI
+│   │       ├── CropDoctorModal.tsx           # Disease diagnosis UI
+│   │       ├── FarmerVoiceHelp.tsx           # Ask Farm Mitra card
+│   │       └── FarmChatWidget.tsx            # Floating on-screen chat
 │   │
 │   ├── lib/
 │   │   ├── farm-store.tsx          # Global React state & LocalStorage sync
 │   │   ├── calculations.ts         # Deterministic financial engine
 │   │   ├── ai-service.ts           # NLP transaction parser & crop disease KB
+│   │   ├── speech.ts               # Typed Web Speech API helper
+│   │   ├── farm-mitra-call.ts      # Call Farm Mitra foundation (languages, avatars, sessions, next actions)
 │   │   ├── demo-data.ts            # Tomato demo dataset (1,542 boxes)
 │   │   └── i18n/
 │   │       ├── dictionaries.ts     # 6-language translation strings
@@ -214,7 +229,8 @@ FarmNexus/
 │   └── financial-calculations.test.ts  # Vitest unit tests for P&L engine
 │
 ├── public/
-│   └── manifest.json               # PWA manifest
+│   ├── manifest.json               # PWA manifest
+│   └── icon-192.png / icon-512.png
 │
 ├── .env.example                    # Environment variable template
 ├── next.config.mjs
@@ -326,6 +342,7 @@ Tests cover:
 - [ ] **Regional FPO Portal** — Multi-farmer aggregate dashboard
 - [ ] **Photo Receipt** — Camera OCR for expense receipts
 - [ ] **Soil Health** — Nutrient tracking over seasons
+- [ ] **[Done] Call Farm Mitra upgrade** — six-language voice call, two avatars, language confirmation, transcript, summaries, history, extensible foundation
 
 ---
 

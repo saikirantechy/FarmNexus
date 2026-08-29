@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
-import { ExpenseCategory, CommissionType } from '@/types';
+import { ExpenseCategory, CommissionType, PaymentStatus } from '@/types';
 import {
   calculateHarvestGross,
   calculateLabourCost,
@@ -31,8 +31,10 @@ const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   'Pesticides',
   'Seeds',
   'Seedlings',
+  'Labour',
   'Diesel',
   'Machinery',
+  'Equipment',
   'Transport',
   'Packaging',
   'Food',
@@ -44,6 +46,7 @@ const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   'Fungicides',
   'Organic inputs',
   'Market fees',
+  'Commission',
   'Other',
 ];
 
@@ -68,10 +71,14 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
   const [eCategory, setECategory] = useState<ExpenseCategory>('Fertilizer');
   const [eVendor, setEVendor] = useState<string>('');
   const [eNotes, setENotes] = useState<string>('');
+  const [ePaymentStatus, setEPaymentStatus] = useState<PaymentStatus>('paid');
+  const [ePaidAmount, setEPaidAmount] = useState<string>('');
+  const [eReceiptUrl, setEReceiptUrl] = useState<string>('');
 
   // Labour Form State
   const [lDate, setLDate] = useState(todayIso);
-  const [lWorkers, setLWorkers] = useState<string>('10');
+  const [lMen, setLMen] = useState<string>('6');
+  const [lWomen, setLWomen] = useState<string>('4');
   const [lWage, setLWage] = useState<string>('500');
   const [lFoodPerPerson, setLFoodPerPerson] = useState<string>('50');
   const [lTransport, setLTransport] = useState<string>('0');
@@ -84,7 +91,7 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
   const [sPrice, setSPrice] = useState<string>('260');
   const [sBuyer, setSBuyer] = useState<string>('Local APMC Trader');
   const [sMarket] = useState<string>('APMC Mandi');
-  const [sCommType] = useState<CommissionType>('percentage');
+  const [sCommType, setSCommType] = useState<CommissionType>('percentage');
   const [sCommRate, setSCommRate] = useState<string>('10');
   const [sPaymentStatus, setSPaymentStatus] = useState<'paid' | 'pending'>('paid');
 
@@ -123,6 +130,20 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
   const handleExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = Number(eAmount) || 0;
+    const partialPaid = Math.min(Math.max(0, Number(ePaidAmount) || 0), amount);
+
+    let paymentStatus: PaymentStatus = 'paid';
+    let paidAmount = amount;
+    let balanceAmount = 0;
+    if (ePaymentStatus === 'pending') {
+      paymentStatus = 'pending';
+      paidAmount = 0;
+      balanceAmount = amount;
+    } else if (ePaymentStatus === 'partial') {
+      paymentStatus = partialPaid >= amount ? 'paid' : 'partial';
+      paidAmount = partialPaid;
+      balanceAmount = Math.max(0, amount - partialPaid);
+    }
 
     addExpense({
       farmId: activeFarmId,
@@ -132,9 +153,10 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
       category: eCategory,
       vendor: eVendor,
       notes: eNotes,
-      paymentStatus: 'paid',
-      paidAmount: amount,
-      balanceAmount: 0,
+      receiptUrl: eReceiptUrl.trim() || undefined,
+      paymentStatus,
+      paidAmount,
+      balanceAmount,
     });
 
     showSuccess(`Added ${formatRupee(amount)} expense for ${eCategory}!`);
@@ -142,7 +164,9 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
 
   const handleLabourSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const workers = Number(lWorkers) || 0;
+    const men = Math.max(0, Number(lMen) || 0);
+    const women = Math.max(0, Number(lWomen) || 0);
+    const workers = Math.max(1, men + women);
     const wage = Number(lWage) || 0;
     const food = Number(lFoodPerPerson) || 0;
     const transport = Number(lTransport) || 0;
@@ -155,6 +179,8 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
       cropCycleId: activeCropId,
       date: lDate,
       workerCount: workers,
+      maleCount: men || undefined,
+      femaleCount: women || undefined,
       dailyWage: wage,
       workDescription: lDesc,
       foodCostPerPerson: food,
@@ -205,8 +231,9 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
 
   // Dynamic calculations for real-time form feedback
   const previewHarvestTotal = calculateHarvestGross(Number(hBoxes) || 0, Number(hPrice) || 0);
+  const previewLabourWorkers = Math.max(1, (Number(lMen) || 0) + (Number(lWomen) || 0));
   const previewLabourCalc = calculateLabourCost(
-    Number(lWorkers) || 0,
+    previewLabourWorkers,
     Number(lWage) || 0,
     Number(lFoodPerPerson) || 0,
     Number(lTransport) || 0,
@@ -454,16 +481,61 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">
-                        {t.notes}
+                        Payment Status
+                      </label>
+                      <select
+                        value={ePaymentStatus}
+                        onChange={(e) => setEPaymentStatus(e.target.value as PaymentStatus)}
+                        className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:bg-white outline-none"
+                      >
+                        <option value="paid">Paid (Cash/UPI)</option>
+                        <option value="pending">Pending (Payable)</option>
+                        <option value="partial">Partial / Advance</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {ePaymentStatus === 'partial' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">
+                        Amount Paid So Far (₹)
                       </label>
                       <input
-                        type="text"
-                        value={eNotes}
-                        onChange={(e) => setENotes(e.target.value)}
+                        type="number"
+                        min="0"
+                        inputMode="numeric"
+                        value={ePaidAmount}
+                        onChange={(e) => setEPaidAmount(e.target.value)}
                         className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:bg-white outline-none"
-                        placeholder="e.g. 2 bags 19:19:19"
+                        placeholder={`e.g. ${Math.round((Number(eAmount) || 0) / 2)}`}
                       />
                     </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      {t.notes}
+                    </label>
+                    <input
+                      type="text"
+                      value={eNotes}
+                      onChange={(e) => setENotes(e.target.value)}
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:bg-white outline-none"
+                      placeholder="e.g. 2 bags 19:19:19"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Receipt Link / Photo URL (optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={eReceiptUrl}
+                      onChange={(e) => setEReceiptUrl(e.target.value)}
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:bg-white outline-none"
+                      placeholder="https://example.com/receipt.jpg"
+                    />
                   </div>
 
                   <button
@@ -508,22 +580,39 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-gray-800 mb-1">
-                        {t.workerCount}
+                        Men Workers
                       </label>
                       <input
                         type="number"
-                        min="1"
+                        min="0"
                         inputMode="numeric"
-                        value={lWorkers}
-                        onChange={(e) => setLWorkers(e.target.value)}
+                        value={lMen}
+                        onChange={(e) => setLMen(e.target.value)}
                         className="w-full text-base font-extrabold text-amber-900 border-2 border-amber-300 rounded-xl px-3 py-2 bg-amber-50/40 outline-none"
-                        required
-                        placeholder="e.g. 10"
+                        placeholder="e.g. 6"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-800 mb-1">
-                        {t.dailyWage}
+                        Women Workers
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        inputMode="numeric"
+                        value={lWomen}
+                        onChange={(e) => setLWomen(e.target.value)}
+                        className="w-full text-base font-extrabold text-amber-900 border-2 border-amber-300 rounded-xl px-3 py-2 bg-amber-50/40 outline-none"
+                        placeholder="e.g. 4"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-500 -mt-2">Total workers = Men + Women: <strong>{previewLabourWorkers}</strong></p>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
+                        Daily Wage (₹)
                       </label>
                       <input
                         type="number"
@@ -531,14 +620,10 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
                         inputMode="numeric"
                         value={lWage}
                         onChange={(e) => setLWage(e.target.value)}
-                        className="w-full text-base font-extrabold text-amber-900 border-2 border-amber-300 rounded-xl px-3 py-2 bg-amber-50/40 outline-none"
-                        required
-                        placeholder="e.g. 500"
+                        className="w-full text-xs font-bold border border-gray-200 rounded-lg px-2.5 py-2 bg-gray-50 outline-none"
+                        placeholder="500"
                       />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
                     <div>
                       <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
                         Food (₹/person)
@@ -563,29 +648,30 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
                         placeholder="0"
                       />
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
-                        Advance Paid (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={lAdvance}
-                        onChange={(e) => setLAdvance(e.target.value)}
-                        className="w-full text-xs font-bold border border-gray-200 rounded-lg px-2.5 py-2 bg-gray-50 outline-none"
-                        placeholder="0"
-                      />
-                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-0.5">
+                      Advance Paid (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={lAdvance}
+                      onChange={(e) => setLAdvance(e.target.value)}
+                      className="w-full text-xs font-bold border border-gray-200 rounded-lg px-2.5 py-2 bg-gray-50 outline-none"
+                      placeholder="0"
+                    />
                   </div>
 
                   {/* Labour Calculation Breakdown */}
                   <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 space-y-1 text-xs text-amber-950">
                     <div className="flex justify-between">
-                      <span>Wages ({lWorkers} × ₹{lWage}):</span>
+                      <span>Wages ({previewLabourWorkers} × ₹{lWage}):</span>
                       <span className="font-semibold">{formatRupee(previewLabourCalc.wageSubtotal)}</span>
                     </div>
                     {previewLabourCalc.totalFoodCost > 0 && (
                       <div className="flex justify-between text-gray-600">
-                        <span>Food ({lWorkers} × ₹{lFoodPerPerson}):</span>
+                        <span>Food ({previewLabourWorkers} × ₹{lFoodPerPerson}):</span>
                         <span>{formatRupee(previewLabourCalc.totalFoodCost)}</span>
                       </div>
                     )}
@@ -689,16 +775,37 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1">
-                        Commission (%)
+                        Commission Model
                       </label>
-                      <input
-                        type="number"
-                        value={sCommRate}
-                        onChange={(e) => setSCommRate(e.target.value)}
+                      <select
+                        value={sCommType}
+                        onChange={(e) => setSCommType(e.target.value as CommissionType)}
                         className="w-full text-xs font-medium border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 outline-none"
-                        placeholder="10"
-                      />
+                      >
+                        <option value="percentage">Percentage (%)</option>
+                        <option value="per_box">Per Box (₹/box)</option>
+                        <option value="fixed">Fixed Amount (₹)</option>
+                      </select>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      {sCommType === 'percentage'
+                        ? 'Commission Rate (%)'
+                        : sCommType === 'per_box'
+                          ? 'Commission Rate (₹ per box)'
+                          : 'Fixed Commission (₹)'}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      inputMode="decimal"
+                      value={sCommRate}
+                      onChange={(e) => setSCommRate(e.target.value)}
+                      className="w-full text-sm font-bold border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 outline-none"
+                      placeholder={sCommType === 'percentage' ? '10' : '5'}
+                    />
                   </div>
 
                   {/* Sale Preview */}
@@ -709,7 +816,7 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
                     </div>
                     {previewSaleDeductions.commissionAmount > 0 && (
                       <div className="flex justify-between text-gray-600">
-                        <span>Commission ({sCommRate}%):</span>
+                        <span>Commission ({sCommType === 'percentage' ? `${sCommRate}%` : sCommType === 'per_box' ? `₹${sCommRate}/box` : `₹${sCommRate} fixed`}):</span>
                         <span>-{formatRupee(previewSaleDeductions.commissionAmount)}</span>
                       </div>
                     )}

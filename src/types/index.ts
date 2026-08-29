@@ -163,6 +163,30 @@ export interface InventoryTransaction {
 
 export type FarmTaskType = 'Irrigation' | 'Spraying' | 'Scouting' | 'Harvest' | 'Labour' | 'Other';
 
+export type OpsActivityType =
+  | 'Irrigation'
+  | 'Spraying'
+  | 'Fertilizing'
+  | 'Ploughing'
+  | 'Seeding'
+  | 'Weeding'
+  | 'Scouting'
+  | 'Harvest'
+  | 'Other';
+
+export interface OpsActivity {
+  id: string;
+  farmId: string;
+  fieldId: string;
+  cropCycleId?: string;
+  date: string;
+  type: OpsActivityType;
+  description?: string;
+  cost?: number;
+  status: 'completed' | 'planned';
+  createdAt: string;
+}
+
 export interface FarmTask {
   id: string;
   farmId: string;

@@ -273,6 +273,11 @@ export default function MoneyPage() {
                   <p className="text-gray-600 mt-0.5">
                     {l.workDescription} • Date: {l.date}
                   </p>
+                  {(l.maleCount || l.femaleCount) ? (
+                    <p className="text-[11px] text-gray-500">
+                      {l.maleCount || 0} men + {l.femaleCount || 0} women
+                    </p>
+                  ) : null}
                   {l.totalFoodCost ? (
                     <p className="text-[11px] text-gray-500">
                       Food: {formatRupee(l.totalFoodCost)} (₹{l.foodCostPerPerson}/person)
@@ -320,9 +325,35 @@ export default function MoneyPage() {
                     <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.2 rounded font-medium">
                       {e.date}
                     </span>
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                        e.paymentStatus === 'paid'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : e.paymentStatus === 'partial'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      {e.paymentStatus === 'paid'
+                        ? 'Paid'
+                        : e.paymentStatus === 'partial'
+                          ? `Partial (due ${formatRupee(e.balanceAmount || 0)})`
+                          : `Due ${formatRupee(e.balanceAmount || e.amount)}`}
+                    </span>
                   </div>
                   {e.vendor && <p className="text-gray-500 text-[11px]">{e.vendor}</p>}
                   {e.notes && <p className="text-gray-500 text-[11px] italic">{e.notes}</p>}
+                  {e.receiptUrl && (
+                    <a
+                      href={e.receiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-sky-700 hover:underline flex items-center gap-1 mt-0.5"
+                    >
+                      <Receipt className="w-3 h-3" />
+                      View receipt
+                    </a>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -377,7 +408,13 @@ export default function MoneyPage() {
 
                 {s.commissionAmount > 0 && (
                   <p className="text-emerald-800 font-semibold text-[11px]">
-                    Commission ({s.commissionRate}%): -{formatRupee(s.commissionAmount)}
+                    Commission (
+                    {s.commissionType === 'per_box'
+                      ? `₹${s.commissionRate}/box`
+                      : s.commissionType === 'fixed'
+                        ? `₹${s.commissionRate} fixed`
+                        : `${s.commissionRate}%`}
+                    ): -{formatRupee(s.commissionAmount)}
                   </p>
                 )}
 

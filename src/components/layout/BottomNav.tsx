@@ -21,6 +21,7 @@ import {
   TrendingUp,
   PencilRuler,
   Phone,
+  ListChecks,
 } from 'lucide-react';
 import { QuickAddModal } from './QuickAddModal';
 
@@ -42,6 +43,7 @@ export function BottomNav() {
     {
       title: 'Farm operations',
       items: [
+        { href: '/operations', label: 'Operations Hub', description: 'Daily farm work', icon: ListChecks, color: 'text-emerald-700 bg-emerald-50' },
         { href: '/inventory', label: 'Input Inventory', description: 'Stock & suppliers', icon: Warehouse, color: 'text-amber-700 bg-amber-50' },
         { href: '/tasks', label: 'Task Calendar', description: 'Work & reminders', icon: CalendarDays, color: 'text-sky-700 bg-sky-50' },
         { href: '/calculator', label: 'Farm Calculator', description: 'Profit in seconds', icon: Calculator, color: 'text-emerald-700 bg-emerald-50' },
