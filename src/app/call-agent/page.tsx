@@ -3,27 +3,32 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLanguage, LANGUAGE_OPTIONS } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
-import { getAgricultureHelpAnswer } from '@/lib/ai-service';
 import { LanguageCode } from '@/types';
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
+  Download,
+  FileText,
+  Gauge,
   History,
   MessageSquarePlus,
   Mic,
   MicOff,
   Phone,
   PhoneOff,
-  RotateCcw,
+  Repeat,
   Send,
   Sparkles,
   Trash2,
   Volume2,
   WifiOff,
+  Zap,
 } from 'lucide-react';
 import { getSpeechRecognition, SpeechRecognitionEvent, SpeechRecognitionLike } from '@/lib/speech';
+import { getContextualHelpAnswer } from '@/lib/farm-mitra-call';
 import {
   AgentCallState,
   AvatarSpec,
@@ -39,11 +44,13 @@ import {
   loadCallHistory,
   saveCallSession,
   buildCallSummary,
+  buildConversationContext,
   suggestNextActions,
   SuggestedAction,
 } from '@/lib/farm-mitra-call';
 
-const IDLE_PROMPT = 'Tap the green button to call Farm Mitra. Help is available for every crop, in six languages.';
+
+const IDLE_PROMPT = 'Tap the green button to start a live voice call with Farm Mitra. Speak naturally in any language.';
 
 function initialsOf(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
@@ -66,6 +73,19 @@ export default function CallAgentPage() {
   const [suggestions, setSuggestions] = useState<SuggestedAction[]>([]);
   const [history, setHistory] = useState<CallSessionRecord[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [autoContinue, setAutoContinue] = useState(true);
+  const [conversationMode] = useState<'continuous' | 'manual'>('continuous');
+  const [voiceRate, setVoiceRate] = useState(() => {
+    try { return parseFloat(localStorage.getItem('farmnexus_voice_rate') || '0.88'); } catch { return 0.88; }
+  });
+  const [voicePitch, setVoicePitch] = useState(() => {
+    try { return parseFloat(localStorage.getItem('farmnexus_voice_pitch') || '1.0'); } catch { return 1.0; }
+  });
+  const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+  const [audioQuality, setAudioQuality] = useState<'excellent' | 'good' | 'poor'>('excellent');
+  const recognitionErrorsRef = useRef(0);
+  const recognitionSuccessRef = useRef(0);
   const [farmerAvatar, setFarmerAvatar] = useState<AvatarSpec>(() => {
     try {
       const raw = localStorage.getItem('farmnexus_farmer_avatar_v1');
@@ -84,16 +104,73 @@ export default function CallAgentPage() {
   const callStateRef = useRef<AgentCallState>('ready');
   const callLanguageRef = useRef<LanguageCode>(callLanguage);
   const speechSupportedRef = useRef(false);
+  const autoContinueRef = useRef(true);
+  const voiceRateRef = useRef(voiceRate);
+  const voicePitchRef = useRef(voicePitch);
+  const requestSentAtRef = useRef<number>(0);
+
+  voiceRateRef.current = voiceRate;
+  voicePitchRef.current = voicePitch;
+
+  const messagesRef = useRef<CallMessage[]>([]);
   const startedAtRef = useRef<number | null>(null);
   const connectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  callStateRef.current = callState;
-  callLanguageRef.current = callLanguage;
-
+  const autoListenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeCrops = useMemo(
     () => cropCycles.filter((c) => c.status === 'active').map((c) => c.cropName),
     [cropCycles]
   );
+
+  // ── Haptic feedback (Vibration API) ──
+  const haptic = useCallback((pattern: number | number[]) => {
+    try {
+      if ('vibrate' in navigator) navigator.vibrate(pattern);
+    } catch { /* ignore — not supported */ }
+  }, []);
+
+  callStateRef.current = callState;
+  callLanguageRef.current = callLanguage;
+  autoContinueRef.current = autoContinue;
+
+  // ── Call duration timer ──
+  useEffect(() => {
+    if (inCall && callState !== 'ended') {
+      durationIntervalRef.current = setInterval(() => {
+        setCallDuration((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (durationIntervalRef.current) {
+        clearInterval(durationIntervalRef.current);
+        durationIntervalRef.current = null;
+      }
+    }
+    return () => {
+      if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
+    };
+  }, [inCall, callState]);
+
+  messagesRef.current = messages;
+
+  // ── Audio quality tracker ──
+  const updateAudioQuality = useCallback((success: boolean) => {
+    if (success) {
+      recognitionSuccessRef.current += 1;
+      // After 3 successful recognitions, upgrade quality
+      if (recognitionSuccessRef.current >= 3 && recognitionErrorsRef.current <= 1) {
+        setAudioQuality('excellent');
+      } else if (recognitionSuccessRef.current >= 1) {
+        setAudioQuality((prev) => (prev === 'poor' ? 'good' : prev));
+      }
+    } else {
+      recognitionErrorsRef.current += 1;
+      if (recognitionErrorsRef.current >= 3) {
+        setAudioQuality('poor');
+      } else if (recognitionErrorsRef.current >= 1) {
+        setAudioQuality((prev) => (prev === 'excellent' ? 'good' : prev));
+      }
+    }
+  }, []);
 
   // Offline detection
   useEffect(() => {
@@ -107,12 +184,22 @@ export default function CallAgentPage() {
     };
   }, []);
 
-  // Load local call history (device-only, privacy conscious)
+  // Reset timer and quality on new call
+  useEffect(() => {
+    if (inCall && callState === 'connecting') {
+      setCallDuration(0);
+      setAudioQuality('excellent');
+      recognitionErrorsRef.current = 0;
+      recognitionSuccessRef.current = 0;
+    }
+  }, [inCall, callState]);
+
+  // Load local call history
   useEffect(() => {
     setHistory(loadCallHistory() || []);
   }, []);
 
-  // Persist farmer avatar edits
+  // Persist farmer avatar
   useEffect(() => {
     try {
       const { kind, ...rest } = farmerAvatar;
@@ -121,30 +208,64 @@ export default function CallAgentPage() {
     } catch { /* ignore */ }
   }, [farmerAvatar]);
 
-  // Speech synthesis
+  // Persist voice settings
+  useEffect(() => {
+    try {
+      localStorage.setItem('farmnexus_voice_rate', String(voiceRate));
+      localStorage.setItem('farmnexus_voice_pitch', String(voicePitch));
+    } catch { /* ignore */ }
+  }, [voiceRate, voicePitch]);
+
+  // ---- Speech Synthesis ----
   const speak = useCallback(
     (text: string) => {
       setSummary(null);
       if (!('speechSynthesis' in window)) {
-        if (callStateRef.current === 'connecting' || callStateRef.current === 'thinking') setCallState('ready');
+        if (callStateRef.current === 'connecting' || callStateRef.current === 'thinking') {
+          setCallState('ready');
+        }
         return;
       }
       window.speechSynthesis.cancel();
       const voice = new SpeechSynthesisUtterance(text);
       voice.lang = getSpeechLocale(callLanguageRef.current);
-      voice.rate = 0.88;
-      voice.onstart = () => setCallState('speaking');
+      voice.rate = voiceRateRef.current;
+      voice.pitch = voicePitchRef.current;
+      voice.onstart = () => {
+        setCallState('speaking');
+      };
       voice.onend = () => {
-        if (callStateRef.current === 'speaking') setCallState('ready');
+        if (callStateRef.current === 'speaking') {
+          // Auto-continue: after AI finishes speaking, start listening
+          if (autoContinueRef.current && inCall) {
+            haptic([10, 50, 10]); // AI done — double tap
+            setCallState('ready');
+            // Small delay before auto-starting mic so user can process
+            autoListenTimer.current = setTimeout(() => {
+              if (autoContinueRef.current && callStateRef.current === 'ready' && inCall) {
+                const recognition = recognitionRef.current;
+                if (recognition) {
+                  try {
+                    recognition.lang = getSpeechLocale(callLanguageRef.current);
+                    recognition.start();
+                  } catch { /* already started */ }
+                }
+              }
+            }, 600);
+          } else {
+            setCallState('ready');
+          }
+        }
       };
       voice.onerror = () => {
         if (callStateRef.current === 'speaking') setCallState('ready');
       };
       window.speechSynthesis.speak(voice);
     },
-    []
+    [inCall]
   );
 
+  // ---- Utterance handler ----
   const handleUtterance = useCallback(
     (transcript: string, final: boolean) => {
       const text = transcript.trim();
@@ -154,7 +275,15 @@ export default function CallAgentPage() {
         setInterim(text);
         return;
       }
-      setMessages((prev) => [...prev, { id: `m${Date.now()}`, speaker: 'farmer', text, language: callLanguage, createdAt: Date.now() }]);
+      const newFarmerMsg: CallMessage = {
+        id: `m${Date.now()}`,
+        speaker: 'farmer',
+        text,
+        language: callLanguage,
+        createdAt: Date.now(),
+      };
+      setMessages((prev) => [...prev, newFarmerMsg]);
+
       const detected = detectCallLanguage(text, callLanguage);
       if (detected.mixed && detected.language !== callLanguage) {
         setLangConfirm({ candidate: detected.language, reason: LANGUAGE_CONFIRMATION_TEXT });
@@ -162,17 +291,31 @@ export default function CallAgentPage() {
         return;
       }
       setCallLanguage(detected.language);
+
+      // Build conversation context from full message history
+      const context = buildConversationContext([...messagesRef.current, newFarmerMsg]);
+
+      requestSentAtRef.current = Date.now();
       setCallState('thinking');
       setTimeout(() => {
-        const response = getAgricultureHelpAnswer(text);
-        setMessages((prev) => [...prev, { id: `m${Date.now()}`, speaker: 'mitra', text: response, language: detected.language, createdAt: Date.now() }]);
+        const response = getContextualHelpAnswer(text, context, activeCrops.length > 0 ? activeCrops : undefined);
+        const responseTimeMs = Date.now() - requestSentAtRef.current;
+        const mitraMsg: CallMessage = {
+          id: `m${Date.now()}`,
+          speaker: 'mitra',
+          text: response,
+          language: detected.language,
+          createdAt: Date.now(),
+          responseTimeMs,
+        };
+        setMessages((prev) => [...prev, mitraMsg]);
         speak(response);
-      }, 500);
+      }, 400);
     },
-    [callLanguage, speak]
+    [callLanguage, speak, activeCrops]
   );
 
-  // Speech recognition (one instance per call language)
+  // ---- Speech Recognition ----
   useEffect(() => {
     const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) {
@@ -182,41 +325,74 @@ export default function CallAgentPage() {
     }
     speechSupportedRef.current = true;
     setSupported(true);
+
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = getSpeechLocale(callLanguage);
-    recognition.onstart = () => setCallState('listening');
-    recognition.onend = () => {
-      if (callStateRef.current === 'listening') setCallState('ready');
+
+    recognition.onstart = () => {
+      if (callStateRef.current !== 'ended' && callStateRef.current !== 'connecting') {
+        setCallState('listening');
+        haptic(15); // mic open tap
+      }
     };
+
+    recognition.onend = () => {
+      if (callStateRef.current === 'listening') {
+        setCallState('ready');
+      }
+    };
+
     recognition.onerror = (event: SpeechRecognitionEvent) => {
       const reason = event.error || 'unknown';
+      updateAudioQuality(false);
       if (reason === 'not-allowed' || reason === 'service-not-allowed') {
         setError('Microphone access was blocked. Please allow the microphone in your browser, then try again.');
+        setCallState('ready');
       } else if (reason === 'no-speech') {
-        setError('I could not hear anything. Please speak again, or type your question below.');
+        if (autoContinueRef.current && callStateRef.current !== 'ended' && inCall) {
+          setInterim('');
+          setCallState('ready');
+        } else {
+          setError('I could not hear anything. Please speak again, or type your question below.');
+          setCallState('ready');
+        }
       } else {
-        setError('Voice input had a problem. Please try again, or type your question below.');
+        if (autoContinueRef.current && callStateRef.current !== 'ended' && inCall) {
+          setCallState('ready');
+        } else {
+          setError('Voice input had a problem. Please try again, or type your question below.');
+          setCallState('ready');
+        }
       }
-      setCallState('ready');
     };
+
     recognition.onresult = (event) => {
       const results = event.results;
       if (!results || results.length === 0) return;
       const last = results[results.length - 1];
       const transcript = last?.[0]?.transcript || '';
-      handleUtterance(transcript, !!last?.[0]?.isFinal);
+      const isFinal = !!last?.[0]?.isFinal;
+      if (isFinal) updateAudioQuality(true);
+      handleUtterance(transcript, isFinal);
     };
+
     recognitionRef.current = recognition;
     return () => recognition.abort();
-  }, [callLanguage, handleUtterance]);
+  }, [callLanguage, handleUtterance, inCall]);
 
-  useEffect(() => () => {
-    if (connectTimer.current) clearTimeout(connectTimer.current);
-    window.speechSynthesis?.cancel();
-  }, []);
+  useEffect(
+    () => () => {
+      if (connectTimer.current) clearTimeout(connectTimer.current);
+      if (autoListenTimer.current) clearTimeout(autoListenTimer.current);
+      if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
+      window.speechSynthesis?.cancel();
+    },
+    []
+  );
 
+  // ---- Start / End call ----
   const startCall = useCallback(() => {
     if (offline) {
       setError('You are offline. Farm Mitra calls need an internet connection. Please reconnect and try again.');
@@ -230,32 +406,106 @@ export default function CallAgentPage() {
     startedAtRef.current = Date.now();
     setCallState('connecting');
     setInCall(true);
+    haptic([10, 30, 10, 30, 10]); // call start pattern
     connectTimer.current = setTimeout(() => {
       const greeting = callGreeting(callLanguage);
       setMessages([
         { id: `m${Date.now()}`, speaker: 'mitra', text: greeting, language: callLanguage, createdAt: Date.now() },
       ]);
       speak(greeting);
-      if (callStateRef.current === 'connecting') setTimeout(() => { if (callStateRef.current === 'connecting') setCallState('ready'); }, 1500);
     }, 800);
   }, [callLanguage, offline, speak]);
 
-  const confirmLanguage = useCallback((code: LanguageCode) => {
-    setLangConfirm(null);
-    setCallLanguage(code);
-    const greeting = callGreeting(code);
-    setMessages((prev) => [...prev, { id: `m${Date.now()}`, speaker: 'mitra', text: greeting, language: code, createdAt: Date.now() }]);
-    speak(greeting);
-  }, [speak]);
+  const confirmLanguage = useCallback(
+    (code: LanguageCode) => {
+      setLangConfirm(null);
+      setCallLanguage(code);
+      const greeting = callGreeting(code);
+      setMessages((prev) => [
+        ...prev,
+        { id: `m${Date.now()}`, speaker: 'mitra', text: greeting, language: code, createdAt: Date.now() },
+      ]);
+      speak(greeting);
+    },
+    [speak]
+  );
+
+  // ── Download transcript as .txt file ──
+  const downloadTranscript = useCallback(() => {
+    if (messages.length === 0) return;
+
+    const startTime = messages[0]?.createdAt || Date.now();
+    const lines: string[] = [];
+    lines.push('═══════════════════════════════════════════════════');
+    lines.push('         FARM MITRA — CALL TRANSCRIPT');
+    lines.push('═══════════════════════════════════════════════════');
+    lines.push('');
+    lines.push(`Date:      ${new Date(startTime).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}`);
+    lines.push(`Time:      ${new Date(startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`);
+    lines.push(`Duration:  ${formatDuration(callDuration)}`);
+    lines.push(`Language:  ${callLanguage.toUpperCase()}`);
+    lines.push(`Messages:  ${messages.length}`);
+    if (activeFarm?.name) lines.push(`Farm:      ${activeFarm.name}`);
+    lines.push('');
+    lines.push('───────────────────────────────────────────────────');
+    lines.push('');
+
+    for (const msg of messages) {
+      const time = new Date(msg.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const speaker = msg.speaker === 'farmer' ? '🧑 Farmer' : '🤖 Farm Mitra';
+      const responseInfo = msg.speaker === 'mitra' && msg.responseTimeMs != null
+        ? ` [response: ${msg.responseTimeMs < 1000 ? msg.responseTimeMs + 'ms' : (msg.responseTimeMs / 1000).toFixed(1) + 's'}]`
+        : '';
+      lines.push(`[${time}] ${speaker}:${responseInfo}`);
+      lines.push(msg.text);
+      lines.push('');
+    }
+
+    // Add response time stats
+    const responseTimes = messages
+      .filter((m) => m.speaker === 'mitra' && m.responseTimeMs != null)
+      .map((m) => m.responseTimeMs!);
+    if (responseTimes.length > 0) {
+      const avgMs = Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length);
+      const fastest = Math.min(...responseTimes);
+      const slowest = Math.max(...responseTimes);
+      lines.push('───────────────────────────────────────────────────');
+      lines.push('');
+      lines.push('📊 RESPONSE TIME STATS:');
+      lines.push(`   Average: ${avgMs < 1000 ? avgMs + 'ms' : (avgMs / 1000).toFixed(1) + 's'}`);
+      lines.push(`   Fastest: ${fastest < 1000 ? fastest + 'ms' : (fastest / 1000).toFixed(1) + 's'}`);
+      lines.push(`   Slowest: ${slowest < 1000 ? slowest + 'ms' : (slowest / 1000).toFixed(1) + 's'}`);
+      lines.push('');
+    }
+
+    lines.push('───────────────────────────────────────────────────');
+    lines.push('');
+    lines.push('This transcript was generated by FarmNexus Voice.');
+    lines.push('═══════════════════════════════════════════════════');
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date(startTime).toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `farm-mitra-call-${dateStr}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [messages, callDuration, callLanguage, activeFarm]);
 
   const endCall = useCallback(() => {
+    haptic(50); // call end buzz
     if (connectTimer.current) clearTimeout(connectTimer.current);
+    if (autoListenTimer.current) clearTimeout(autoListenTimer.current);
     recognitionRef.current?.stop();
     window.speechSynthesis?.cancel();
     setInterim('');
     setLangConfirm(null);
     setCallState('ended');
     setInCall(false);
+    setCallDuration(0);
     if (startedAtRef.current && messages.length > 0) {
       const session: CallSessionRecord = {
         id: `call-${startedAtRef.current}`,
@@ -300,15 +550,34 @@ export default function CallAgentPage() {
       const trimmed = text.trim();
       if (!trimmed) return;
       if (callState === 'connecting') return;
-      setMessages((prev) => [...prev, { id: `m${Date.now()}`, speaker: 'farmer', text: trimmed, language: callLanguage, createdAt: Date.now() }]);
+      const newFarmerMsg: CallMessage = {
+        id: `m${Date.now()}`,
+        speaker: 'farmer',
+        text: trimmed,
+        language: callLanguage,
+        createdAt: Date.now(),
+      };
+      setMessages((prev) => [...prev, newFarmerMsg]);
+      requestSentAtRef.current = Date.now();
       setCallState('thinking');
+
+      const context = buildConversationContext([...messagesRef.current, newFarmerMsg]);
       setTimeout(() => {
-        const response = getAgricultureHelpAnswer(trimmed);
-        setMessages((prev) => [...prev, { id: `m${Date.now()}`, speaker: 'mitra', text: response, language: callLanguage, createdAt: Date.now() }]);
+        const response = getContextualHelpAnswer(trimmed, context, activeCrops.length > 0 ? activeCrops : undefined);
+        const responseTimeMs = Date.now() - requestSentAtRef.current;
+        const mitraMsg: CallMessage = {
+          id: `m${Date.now()}`,
+          speaker: 'mitra',
+          text: response,
+          language: callLanguage,
+          createdAt: Date.now(),
+          responseTimeMs,
+        };
+        setMessages((prev) => [...prev, mitraMsg]);
         speak(response);
       }, 400);
     },
-    [callLanguage, callState, speak]
+    [callLanguage, callState, speak, activeCrops]
   );
 
   const clearHistory = () => {
@@ -325,6 +594,12 @@ export default function CallAgentPage() {
   const initials = farmerAvatar.initials || initialsOf(demoProfile.displayName || user?.name || 'R');
 
   const active = inCall;
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const stateLabel: Record<AgentCallState, string> = {
     ready: 'READY',
     connecting: 'CONNECTING',
@@ -335,44 +610,124 @@ export default function CallAgentPage() {
     ended: 'ENDED',
   };
 
+  const stateColor: Record<AgentCallState, string> = {
+    ready: 'bg-white/10 text-white/70',
+    connecting: 'bg-amber-400/20 text-amber-100',
+    listening: 'bg-red-400/20 text-red-100',
+    thinking: 'bg-amber-400/20 text-amber-100',
+    speaking: 'bg-emerald-400/20 text-emerald-100',
+    error: 'bg-rose-500/20 text-rose-100',
+    ended: 'bg-white/10 text-white/50',
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-3 py-4 pb-28">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] items-start">
-        {/* CALL STAGE */}
+        {/* ════════════════ CALL STAGE ════════════════ */}
         <section className="relative overflow-hidden rounded-[2.25rem] bg-gradient-to-b from-[#082f28] via-[#0b4d3e] to-[#0b6b56] text-white shadow-2xl border border-emerald-900/30">
+          {/* Ambient glows */}
           <div className="absolute -top-24 -right-20 w-64 h-64 rounded-full bg-emerald-300/15 blur-3xl motion-reduce:animate-none" />
           <div className="absolute bottom-10 -left-24 w-56 h-56 rounded-full bg-cyan-300/10 blur-3xl" />
+          {callState === 'listening' && (
+            <div className="absolute inset-0 bg-gradient-to-b from-red-500/5 via-transparent to-transparent pointer-events-none animate-pulse motion-reduce:animate-none" />
+          )}
+          {callState === 'speaking' && (
+            <div className="absolute inset-0 bg-gradient-to-b from-emerald-400/8 via-transparent to-transparent pointer-events-none" />
+          )}
 
+          {/* Header */}
           <div className="relative p-4 sm:p-5 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-200">FarmNexus Voice</p>
-              <h1 className="text-lg font-black flex items-center gap-2">Call Farm Mitra <Sparkles className="w-4 h-4 text-emerald-300" /></h1>
+              <h1 className="text-lg font-black flex items-center gap-2">
+                Call Farm Mitra <Sparkles className="w-4 h-4 text-emerald-300" />
+              </h1>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {offline && <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-rose-500/20 text-rose-100"><WifiOff className="w-3 h-3" />Offline</span>}
-              <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full ${active ? 'bg-emerald-300/20 text-emerald-100' : 'bg-white/10 text-white/70'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-300 animate-pulse' : 'bg-white/40'} motion-reduce:animate-none`} />
+              {offline && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full bg-rose-500/20 text-rose-100">
+                  <WifiOff className="w-3 h-3" />Offline
+                </span>
+              )}
+
+              {/* ── Audio quality indicator ── */}
+              {active && callState !== 'ended' && (
+                <AudioQualityBadge quality={audioQuality} />
+              )}
+
+              {/* ── Call duration timer ── */}
+              {active && callState !== 'ended' && (
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full bg-white/10 text-white/80">
+                  <Clock className="w-3 h-3" />
+                  <span className="font-mono tabular-nums tracking-wider">{formatDuration(callDuration)}</span>
+                </span>
+              )}
+
+              <span
+                className={`inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full ${stateColor[callState]}`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    active && callState !== 'ended' && callState !== 'ready'
+                      ? callState === 'listening'
+                        ? 'bg-red-300 animate-pulse'
+                        : callState === 'speaking'
+                        ? 'bg-emerald-300 animate-pulse'
+                        : 'bg-amber-300 animate-pulse'
+                      : 'bg-white/40'
+                  } motion-reduce:animate-none`}
+                />
                 {stateLabel[callState]}
               </span>
             </div>
           </div>
 
           <div className="relative px-4 sm:px-6 pb-6">
-            {/* Two avatars */}
+            {/* ════════════════ AVATARS + WAVEFORM ════════════════ */}
             <div className="flex items-end justify-center gap-4 sm:gap-6 pt-2">
               <AvatarDuo
                 mitra={DEFAULT_MITRA_AVATAR}
                 farmer={{ ...farmerAvatar, initials }}
-                speaking={callState === 'speaking' ? 'mitra' : callState === 'listening' || callState === 'thinking' ? 'farmer' : null}
+                speaking={
+                  callState === 'speaking'
+                    ? 'mitra'
+                    : callState === 'listening' || callState === 'thinking'
+                    ? 'farmer'
+                    : null
+                }
+                callState={callState}
               />
             </div>
 
+            {/* ════════════════ LIVE TRANSCRIPT ════════════════ */}
             <div className="mt-4 text-center min-h-14">
-              <p aria-live="polite" className="text-sm sm:text-base leading-relaxed text-white/95 max-w-xl mx-auto">
-                {messages.length > 0 ? messages[messages.length - 1]?.text : IDLE_PROMPT}
-              </p>
+              {callState === 'thinking' ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-300 animate-bounce [animation-delay:0ms]" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-300 animate-bounce [animation-delay:150ms]" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-300 animate-bounce [animation-delay:300ms]" />
+                  </div>
+                  <p className="text-sm text-emerald-200">Farm Mitra is thinking…</p>
+                </div>
+              ) : callState === 'listening' ? (
+                <p aria-live="polite" className="text-sm text-emerald-100">
+                  {interim ? (
+                    <span className="italic text-white">&ldquo;{interim}&rdquo;</span>
+                  ) : (
+                    'Listening — speak your question…'
+                  )}
+                </p>
+              ) : callState === 'connecting' ? (
+                <p className="text-sm text-emerald-200 animate-pulse motion-reduce:animate-none">Connecting to Farm Mitra…</p>
+              ) : (
+                <p aria-live="polite" className="text-sm sm:text-base leading-relaxed text-white/95 max-w-xl mx-auto">
+                  {messages.length > 0 ? messages[messages.length - 1]?.text : IDLE_PROMPT}
+                </p>
+              )}
             </div>
 
+            {/* ════════════════ LANGUAGE CONFIRM ════════════════ */}
             {langConfirm && (
               <div className="mt-3 rounded-2xl bg-amber-400/15 border border-amber-300/30 p-3 text-center">
                 <p className="text-xs font-bold text-amber-100">{langConfirm.reason}</p>
@@ -381,7 +736,11 @@ export default function CallAgentPage() {
                     <button
                       key={option.code}
                       onClick={() => confirmLanguage(option.code)}
-                      className={`text-[11px] font-black px-2.5 py-1.5 rounded-full border transition ${option.code === langConfirm.candidate ? 'bg-white text-emerald-900 border-white' : 'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}
+                      className={`text-[11px] font-black px-2.5 py-1.5 rounded-full border transition ${
+                        option.code === langConfirm.candidate
+                          ? 'bg-white text-emerald-900 border-white'
+                          : 'bg-white/10 text-white border-white/20 hover:bg-white/20'
+                      }`}
                     >
                       {option.native}
                     </button>
@@ -390,56 +749,206 @@ export default function CallAgentPage() {
               </div>
             )}
 
+            {/* ════════════════ ERROR ════════════════ */}
             {error && (
               <div className="mt-3 rounded-2xl bg-rose-500/15 border border-rose-300/30 p-3 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-rose-200 shrink-0 mt-0.5" />
                 <div className="text-xs text-rose-100 min-w-0">
                   <p className="font-bold">{error}</p>
-                  <button onClick={() => { setError(''); toggleMic(); }} className="mt-1.5 inline-flex items-center gap-1.5 bg-white text-rose-900 font-black px-3 py-1.5 rounded-full text-[11px] hover:bg-rose-100">
+                  <button
+                    onClick={() => {
+                      setError('');
+                      toggleMic();
+                    }}
+                    className="mt-1.5 inline-flex items-center gap-1.5 bg-white text-rose-900 font-black px-3 py-1.5 rounded-full text-[11px] hover:bg-rose-100"
+                  >
                     <Mic className="w-3.5 h-3.5" /> Retry microphone
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Call controls */}
+            {/* ════════════════ CALL CONTROLS ════════════════ */}
             <div className="mt-4 flex items-center justify-center gap-5">
+              {/* End / Start call button */}
               <button
                 onClick={active ? endCall : startCall}
-                className={`w-16 h-16 rounded-full shadow-xl flex items-center justify-center transition active:scale-95 focus-visible:ring-4 focus-visible:ring-emerald-300/40 focus-visible:outline-none ${active ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-950/30' : 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-950/30'}`}
+                className={`w-16 h-16 rounded-full shadow-xl flex items-center justify-center transition active:scale-95 focus-visible:ring-4 focus-visible:ring-emerald-300/40 focus-visible:outline-none ${
+                  active
+                    ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-950/30'
+                    : 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-950/30'
+                }`}
                 aria-label={active ? 'End Farm Mitra call' : 'Call Farm Mitra'}
               >
                 {active ? <PhoneOff className="w-7 h-7" /> : <Phone className="w-7 h-7 text-emerald-950" />}
               </button>
-              {(active && callState !== 'connecting') && (
+
+              {/* Mic button */}
+              {active && callState !== 'connecting' && (
                 <button
                   onClick={toggleMic}
                   disabled={!supported}
-                  className={`w-14 h-14 rounded-full border border-white/20 flex items-center justify-center transition focus-visible:ring-4 focus-visible:ring-rose-300/40 focus-visible:outline-none disabled:opacity-40 ${callState === 'listening' ? 'bg-rose-500 animate-pulse motion-reduce:animate-none' : callState === 'thinking' || callState === 'speaking' ? 'bg-amber-500/80' : 'bg-white/15 hover:bg-white/25'}`}
+                  className={`w-14 h-14 rounded-full border border-white/20 flex items-center justify-center transition focus-visible:ring-4 focus-visible:ring-rose-300/40 focus-visible:outline-none disabled:opacity-40 ${
+                    callState === 'listening'
+                      ? 'bg-red-500 shadow-lg shadow-red-500/30 animate-pulse motion-reduce:animate-none'
+                      : callState === 'thinking'
+                      ? 'bg-amber-500/80 animate-pulse motion-reduce:animate-none'
+                      : callState === 'speaking'
+                      ? 'bg-emerald-500/60'
+                      : 'bg-white/15 hover:bg-white/25'
+                  }`}
                   aria-label={callState === 'listening' ? 'Stop listening' : 'Speak to Farm Mitra'}
                 >
-                  {callState === 'listening' ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                  {callState === 'listening' ? (
+                    <MicOff className="w-6 h-6" />
+                  ) : (
+                    <Mic className="w-6 h-6" />
+                  )}
                 </button>
               )}
+
+              {/* Repeat last answer */}
               <button
-                onClick={() => { const last = [...messages].reverse().find((m) => m.speaker === 'mitra'); if (last) speak(last.text); }}
-                className={`w-14 h-14 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 flex items-center justify-center transition focus-visible:ring-4 focus-visible:ring-emerald-300/40 focus-visible:outline-none ${active ? '' : 'opacity-50'}`}
+                onClick={() => {
+                  const last = [...messages].reverse().find((m) => m.speaker === 'mitra');
+                  if (last) speak(last.text);
+                }}
+                className={`w-14 h-14 rounded-full bg-white/15 hover:bg-white/25 border border-white/20 flex items-center justify-center transition focus-visible:ring-4 focus-visible:ring-emerald-300/40 focus-visible:outline-none ${
+                  active ? '' : 'opacity-50'
+                }`}
                 aria-label="Repeat Farm Mitra answer"
               >
                 <Volume2 className="w-6 h-6" />
               </button>
             </div>
+
+            {/* ════════════════ AUTO-CONTINUE TOGGLE ════════════════ */}
+            {active && (
+              <div className="mt-3 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setAutoContinue((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 text-[11px] font-black px-3 py-1.5 rounded-full border transition ${
+                    autoContinue
+                      ? 'bg-emerald-400/20 border-emerald-300/40 text-emerald-100'
+                      : 'bg-white/10 border-white/15 text-white/50'
+                  }`}
+                  aria-label={autoContinue ? 'Disable auto-continue' : 'Enable auto-continue'}
+                >
+                  <Repeat className={`w-3 h-3 ${autoContinue ? 'text-emerald-300' : ''}`} />
+                  Auto-continue {autoContinue ? 'ON' : 'OFF'}
+                </button>
+
+                <button
+                  onClick={() => setVoiceSettingsOpen((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 text-[11px] font-black px-3 py-1.5 rounded-full border transition ${
+                    voiceSettingsOpen
+                      ? 'bg-white/20 border-white/30 text-white'
+                      : 'bg-white/10 border-white/15 text-white/50 hover:bg-white/15'
+                  }`}
+                  aria-label="Voice settings"
+                >
+                  <Gauge className="w-3 h-3" />
+                  Voice
+                </button>
+              </div>
+            )}
+
+            {/* ════════════════ VOICE SETTINGS PANEL ════════════════ */}
+            {active && voiceSettingsOpen && (
+              <div className="mt-3 rounded-2xl bg-white/10 border border-white/15 p-4 space-y-4">
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-200">Voice Settings</p>
+
+                {/* Speed control */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-white/80">Speed</label>
+                    <span className="text-[11px] font-mono font-black text-emerald-300 tabular-nums">
+                      {voiceRate.toFixed(2)}x
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2.0}
+                    step={0.05}
+                    value={voiceRate}
+                    onChange={(e) => setVoiceRate(parseFloat(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/15 accent-emerald-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-emerald-500/30 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-emerald-400 [&::-moz-range-thumb]:border-0"
+                    aria-label="Voice speed"
+                  />
+                  <div className="flex justify-between text-[9px] text-white/40 mt-1">
+                    <span>Slow</span>
+                    <span>Normal</span>
+                    <span>Fast</span>
+                  </div>
+                </div>
+
+                {/* Pitch control */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-white/80">Pitch</label>
+                    <span className="text-[11px] font-mono font-black text-emerald-300 tabular-nums">
+                      {voicePitch.toFixed(1)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2.0}
+                    step={0.1}
+                    value={voicePitch}
+                    onChange={(e) => setVoicePitch(parseFloat(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/15 accent-emerald-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-emerald-500/30 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-emerald-400 [&::-moz-range-thumb]:border-0"
+                    aria-label="Voice pitch"
+                  />
+                  <div className="flex justify-between text-[9px] text-white/40 mt-1">
+                    <span>Low</span>
+                    <span>Normal</span>
+                    <span>High</span>
+                  </div>
+                </div>
+
+                {/* Quick presets */}
+                <div className="flex gap-1.5">
+                  {[
+                    { label: 'Slow & Deep', rate: 0.7, pitch: 0.8 },
+                    { label: 'Normal', rate: 0.88, pitch: 1.0 },
+                    { label: 'Fast & Clear', rate: 1.2, pitch: 1.0 },
+                    { label: 'High pitch', rate: 0.9, pitch: 1.4 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      onClick={() => { setVoiceRate(preset.rate); setVoicePitch(preset.pitch); }}
+                      className={`text-[10px] font-bold px-2 py-1 rounded-full border transition ${
+                        Math.abs(voiceRate - preset.rate) < 0.05 && Math.abs(voicePitch - preset.pitch) < 0.05
+                          ? 'bg-emerald-400/20 border-emerald-300/40 text-emerald-100'
+                          : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-[9px] text-white/30 text-center">Settings are saved and persist across calls</p>
+              </div>
+            )}
+
+            {/* Status hint */}
             <p className="text-center text-[11px] text-emerald-200 mt-3">
               {active
                 ? callState === 'listening'
-                  ? 'Listening… speak your question, then it will reach Farm Mitra.'
+                  ? autoContinue
+                    ? 'Listening — speak your question. After the answer, I will listen again automatically.'
+                    : 'Listening — speak your question, then it will reach Farm Mitra.'
                   : callState === 'thinking'
-                    ? 'Farm Mitra is thinking…'
-                    : callState === 'speaking'
-                      ? 'Farm Mitra is speaking… you can press the mic to interrupt.'
-                      : 'Tap the microphone, ask your question, then hear the answer.'
-                : 'Tap green to start • Red ends the call • Works on this device only'}
+                  ? 'Farm Mitra is thinking…'
+                  : callState === 'speaking'
+                  ? 'Farm Mitra is speaking… you can press the mic to interrupt.'
+                  : 'Tap the microphone, ask your question, then hear the answer.'
+                : 'Tap green to start • Red ends the call • Auto-continue keeps the conversation flowing'}
             </p>
+
             {!supported && (
               <p className="mt-2 text-center text-xs text-amber-100 bg-amber-500/20 p-2 rounded-xl">
                 This browser does not support voice input — type your question below.
@@ -448,22 +957,55 @@ export default function CallAgentPage() {
           </div>
         </section>
 
-        {/* SIDE PANEL */}
+        {/* ════════════════ SIDE PANEL ════════════════ */}
         <div className="space-y-4 min-w-0">
           {/* Live transcript */}
           <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 min-w-0">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-black text-sm text-gray-900 flex items-center gap-2"><MessageSquarePlus className="w-4 h-4 text-emerald-700" />Call conversation</h2>
-              <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">{messages.length} lines</span>
+              <h2 className="font-black text-sm text-gray-900 flex items-center gap-2">
+                <MessageSquarePlus className="w-4 h-4 text-emerald-700" />
+                Call conversation
+              </h2>
+              <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                {messages.length} lines
+              </span>
             </div>
+
+            {/* Conversation mode indicator */}
+            {active && (
+              <div className="mb-3 flex items-center gap-2">
+                <Zap className={`w-3 h-3 ${autoContinue ? 'text-emerald-500' : 'text-gray-400'}`} />
+                <span className={`text-[10px] font-bold ${autoContinue ? 'text-emerald-700' : 'text-gray-400'}`}>
+                  {autoContinue ? 'Continuous conversation — mic auto-opens after each answer' : 'Manual mode — tap mic for each question'}
+                </span>
+              </div>
+            )}
+
             <div role="log" aria-live="polite" className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {messages.length === 0 ? (
                 <p className="text-center text-xs text-gray-400 py-6">The live conversation will appear here.</p>
               ) : (
                 messages.slice(-40).map((message) => (
                   <div key={message.id} className={`flex ${message.speaker === 'farmer' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs ${message.speaker === 'farmer' ? 'bg-emerald-50 text-emerald-900 border border-emerald-100 rounded-br-md' : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}>
-                      <p className="font-bold text-[9px] uppercase tracking-wide mb-0.5 text-gray-400">{message.speaker === 'farmer' ? 'You' : 'Farm Mitra'}</p>
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs ${
+                        message.speaker === 'farmer'
+                          ? 'bg-emerald-50 text-emerald-900 border border-emerald-100 rounded-br-md'
+                          : 'bg-gray-100 text-gray-800 rounded-bl-md'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <p className="font-bold text-[9px] uppercase tracking-wide text-gray-400">
+                          {message.speaker === 'farmer' ? 'You' : 'Farm Mitra'}
+                        </p>
+                        {message.speaker === 'mitra' && message.responseTimeMs != null && (
+                          <span className="text-[8px] font-mono font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full tabular-nums">
+                            {message.responseTimeMs < 1000
+                              ? `${message.responseTimeMs}ms`
+                              : `${(message.responseTimeMs / 1000).toFixed(1)}s`}
+                          </span>
+                        )}
+                      </div>
                       <p className="whitespace-pre-wrap break-words">{message.text}</p>
                     </div>
                   </div>
@@ -472,11 +1014,24 @@ export default function CallAgentPage() {
               {interim && (
                 <div className="flex justify-end">
                   <div className="max-w-[85%] rounded-2xl px-3 py-2 text-xs bg-emerald-50 text-gray-500 border border-dashed border-emerald-200">
-                    <p className="italic">“{interim}”</p>
+                    <p className="italic">&ldquo;{interim}&rdquo;</p>
+                  </div>
+                </div>
+              )}
+              {callState === 'thinking' && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl px-3 py-2 text-xs bg-gray-100 rounded-bl-md">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:300ms]" />
+                      <span className="text-gray-400 ml-1">typing…</span>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
+
             {/* Text fallback */}
             <form
               onSubmit={(event) => {
@@ -494,21 +1049,48 @@ export default function CallAgentPage() {
                 className="min-w-0 flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 outline-none focus:ring-2 focus:ring-emerald-600"
                 aria-label="Type your question to Farm Mitra"
               />
-              <button type="submit" className="shrink-0 bg-emerald-700 hover:bg-emerald-800 text-white w-11 rounded-xl flex items-center justify-center transition focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:outline-none" aria-label="Send typed question"><Send className="w-4 h-4" /></button>
+              <button
+                type="submit"
+                className="shrink-0 bg-emerald-700 hover:bg-emerald-800 text-white w-11 rounded-xl flex items-center justify-center transition focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:outline-none"
+                aria-label="Send typed question"
+              >
+                <Send className="w-4 h-4" />
+              </button>
             </form>
           </section>
 
           {/* Call summary + next actions */}
           {summary && (
             <section className="bg-white rounded-2xl border border-emerald-200 shadow-sm p-4">
-              <div className="flex items-center gap-2 mb-2"><CheckCircle2 className="w-4 h-4 text-emerald-600" /><h2 className="font-black text-sm text-gray-900">Call summary</h2></div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <h2 className="font-black text-sm text-gray-900">Call summary</h2>
+                </div>
+                <button
+                  onClick={downloadTranscript}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-2.5 py-1.5 rounded-full transition focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:outline-none"
+                  aria-label="Download call transcript"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Save transcript
+                </button>
+              </div>
               <p className="text-xs text-gray-600 whitespace-pre-wrap">{summary}</p>
               {suggestions.length > 0 && (
                 <>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mt-3 mb-1.5">Suggested next steps</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mt-3 mb-1.5">
+                    Suggested next steps
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {suggestions.map((s) => (
-                      <a key={s.label} href={s.href || '/dashboard'} className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-2.5 py-1.5 rounded-full transition">{s.label}</a>
+                      <a
+                        key={s.label}
+                        href={s.href || '/dashboard'}
+                        className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-2.5 py-1.5 rounded-full transition"
+                      >
+                        {s.label}
+                      </a>
                     ))}
                   </div>
                 </>
@@ -527,31 +1109,52 @@ export default function CallAgentPage() {
 
           {/* Previous calls */}
           <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-            <button onClick={() => setHistoryOpen((value) => !value)} className="w-full flex items-center justify-between text-sm font-bold text-gray-800" aria-expanded={historyOpen}>
-              <span className="flex items-center gap-2"><History className="w-4 h-4 text-sky-700" />Previous calls ({history.length})</span>
+            <button
+              onClick={() => setHistoryOpen((value) => !value)}
+              className="w-full flex items-center justify-between text-sm font-bold text-gray-800"
+              aria-expanded={historyOpen}
+            >
+              <span className="flex items-center gap-2">
+                <History className="w-4 h-4 text-sky-700" />Previous calls ({history.length})
+              </span>
               {historyOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
             {historyOpen && (
               <div className="mt-3 space-y-2">
                 {history.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-3">No saved calls yet. Call history stays on this device only.</p>
+                  <p className="text-xs text-gray-400 text-center py-3">
+                    No saved calls yet. Call history stays on this device only.
+                  </p>
                 ) : (
                   history.slice(0, 6).map((session) => (
                     <details key={session.id} className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs">
                       <summary className="cursor-pointer font-bold text-gray-800 flex items-center justify-between gap-2">
                         <span className="truncate">{new Date(session.startedAt).toLocaleString()}</span>
-                        <span className="bg-sky-100 text-sky-800 font-black px-1.5 py-0.5 rounded-full shrink-0">{session.messages.length} lines</span>
+                        <span className="bg-sky-100 text-sky-800 font-black px-1.5 py-0.5 rounded-full shrink-0">
+                          {session.messages.length} lines
+                        </span>
                       </summary>
                       <div className="mt-2 space-y-1.5">
                         {session.messages.slice(0, 6).map((m) => (
-                          <p key={m.id} className="text-gray-600"><b className={m.speaker === 'farmer' ? 'text-emerald-700' : 'text-gray-900'}>{m.speaker === 'farmer' ? 'You: ' : 'Mitra: '}</b>{m.text.slice(0, 160)}{m.text.length > 160 ? '…' : ''}</p>
+                          <p key={m.id} className="text-gray-600">
+                            <b className={m.speaker === 'farmer' ? 'text-emerald-700' : 'text-gray-900'}>
+                              {m.speaker === 'farmer' ? 'You: ' : 'Mitra: '}
+                            </b>
+                            {m.text.slice(0, 160)}
+                            {m.text.length > 160 ? '…' : ''}
+                          </p>
                         ))}
                       </div>
                     </details>
                   ))
                 )}
                 {history.length > 0 && (
-                  <button onClick={clearHistory} className="w-full text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center justify-center gap-1 py-1.5"><Trash2 className="w-3.5 h-3.5" />Clear call history</button>
+                  <button
+                    onClick={clearHistory}
+                    className="w-full text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center justify-center gap-1 py-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />Clear call history
+                  </button>
                 )}
               </div>
             )}
@@ -562,15 +1165,71 @@ export default function CallAgentPage() {
   );
 }
 
-function AvatarDuo({ mitra, farmer, speaking }: { mitra: AvatarSpec; farmer: AvatarSpec; speaking: 'mitra' | 'farmer' | null }) {
+/* ════════════════════════════════════════════════════════════════════ */
+/* AVATAR + VISUAL WAVEFORM                                           */
+/* ════════════════════════════════════════════════════════════════════ */
+
+function AudioWaveform({ active, color }: { active: boolean; color: 'emerald' | 'red' | 'amber' }) {
+  const barColors: Record<string, string> = {
+    emerald: 'bg-emerald-300',
+    red: 'bg-red-300',
+    amber: 'bg-amber-300',
+  };
+  const barColor = barColors[color] || barColors.emerald;
+
+  return (
+    <div className="flex items-center justify-center gap-[3px] h-6" aria-hidden="true">
+      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+        <span
+          key={i}
+          className={`w-[3px] rounded-full transition-all duration-150 ${
+            active ? `${barColor} animate-pulse motion-reduce:animate-none` : 'bg-white/20 h-1'
+          }`}
+          style={{
+            height: active ? `${8 + Math.sin(Date.now() / 200 + i * 0.8) * 8}px` : '3px',
+            animationDelay: active ? `${i * 80}ms` : '0ms',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AvatarDuo({
+  mitra,
+  farmer,
+  speaking,
+  callState,
+}: {
+  mitra: AvatarSpec;
+  farmer: AvatarSpec;
+  speaking: 'mitra' | 'farmer' | null;
+  callState: AgentCallState;
+}) {
+  const waveformColor =
+    callState === 'listening' ? 'red' : callState === 'speaking' ? 'emerald' : callState === 'thinking' ? 'amber' : 'emerald';
+  const waveformActive = callState === 'listening' || callState === 'speaking' || callState === 'thinking';
+
   return (
     <div className="flex items-center gap-3 sm:gap-5">
-      <AvatarGraphic spec={farmer} speaking={speaking === 'farmer'} size="md" />
+      <AvatarGraphic
+        spec={farmer}
+        speaking={speaking === 'farmer'}
+        size="md"
+        active={callState === 'listening'}
+      />
       <div className="flex flex-col items-center gap-1">
-        <span className={`w-14 sm:w-20 border-t-2 border-dashed ${speaking ? 'border-emerald-300 animate-pulse motion-reduce:animate-none' : 'border-white/25'}`} />
-        <span className="text-[10px] font-black text-emerald-200 tracking-widest">{speaking === 'farmer' ? '◄' : speaking === 'mitra' ? '►' : '· · ·'}</span>
+        <AudioWaveform active={waveformActive} color={waveformColor} />
+        <span className="text-[10px] font-black text-emerald-200 tracking-widest">
+          {speaking === 'farmer' ? '◄ LISTENING' : speaking === 'mitra' ? '► SPEAKING' : '· · ·'}
+        </span>
       </div>
-      <AvatarGraphic spec={mitra} speaking={speaking === 'mitra'} size="md" />
+      <AvatarGraphic
+        spec={mitra}
+        speaking={speaking === 'mitra'}
+        size="md"
+        active={callState === 'speaking'}
+      />
     </div>
   );
 }
@@ -598,16 +1257,95 @@ const SKIN_TEXT: Record<AvatarSpec['skin'], string> = {
   warm: 'bg-rose-100 text-rose-900',
 };
 
-function AvatarGraphic({ spec, speaking, size = 'lg' }: { spec: AvatarSpec; speaking: boolean; size?: 'md' | 'lg' }) {
+/* ════════════════════════════════════════════════════════════════════ */
+/* AUDIO QUALITY INDICATOR                                            */
+/* ════════════════════════════════════════════════════════════════════ */
+
+function AudioQualityBadge({ quality }: { quality: 'excellent' | 'good' | 'poor' }) {
+  const config = {
+    excellent: {
+      bars: 4,
+      color: 'text-emerald-300',
+      bg: 'bg-emerald-400/15',
+      border: 'border-emerald-400/30',
+      label: 'Excellent',
+    },
+    good: {
+      bars: 3,
+      color: 'text-amber-300',
+      bg: 'bg-amber-400/15',
+      border: 'border-amber-400/30',
+      label: 'Good',
+    },
+    poor: {
+      bars: 1,
+      color: 'text-rose-300',
+      bg: 'bg-rose-400/15',
+      border: 'border-rose-400/30',
+      label: 'Weak',
+    },
+  };
+  const c = config[quality];
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full ${c.bg} border ${c.border} ${c.color}`}
+      title={`Audio quality: ${c.label}`}
+    >
+      {/* Signal bars */}
+      <span className="flex items-end gap-[2px] h-3" aria-hidden="true">
+        {[1, 2, 3, 4].map((bar) => (
+          <span
+            key={bar}
+            className={`w-[3px] rounded-sm transition-all duration-300 ${
+              bar <= c.bars ? c.color : 'bg-white/20'
+            } ${bar <= c.bars ? 'opacity-100' : 'opacity-30'}`}
+            style={{ height: `${4 + bar * 2}px` }}
+          />
+        ))}
+      </span>
+      <span className="hidden sm:inline">{c.label}</span>
+    </span>
+  );
+}
+
+function AvatarGraphic({
+  spec,
+  speaking,
+  size = 'lg',
+  active,
+}: {
+  spec: AvatarSpec;
+  speaking: boolean;
+  size?: 'md' | 'lg';
+  active?: boolean;
+}) {
   const isMitra = spec.kind === 'mitra';
   const wrap = size === 'lg' ? 'w-28 h-28 sm:w-36 sm:h-36' : 'w-24 h-24 sm:w-32 sm:h-32';
   const icon = spec.initials ? spec.initials.slice(0, 2) : isMitra ? 'FM' : '';
+
   return (
     <div className="flex flex-col items-center">
-      <div className={`relative rounded-full bg-gradient-to-br ${SKIN_TONES[spec.skin]} p-1 ${wrap} shadow-[0_0_0_10px_rgba(110,231,183,0.10),0_0_50px_rgba(110,231,183,0.30)] transition-transform ${speaking ? 'scale-105' : ''}`}>
+      <div
+        className={`relative rounded-full bg-gradient-to-br ${SKIN_TONES[spec.skin]} p-1 ${wrap} transition-all duration-300 ${
+          speaking
+            ? 'shadow-[0_0_0_10px_rgba(110,231,183,0.18),0_0_60px_rgba(110,231,183,0.35)] scale-105'
+            : active
+            ? 'shadow-[0_0_0_8px_rgba(110,231,183,0.12),0_0_40px_rgba(110,231,183,0.2)]'
+            : 'shadow-[0_0_0_10px_rgba(110,231,183,0.10),0_0_50px_rgba(110,231,183,0.30)]'
+        }`}
+      >
         <div className="w-full h-full rounded-full bg-clip-text flex items-center justify-center relative overflow-hidden">
-          <div className={`absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t ${ACCENT_COLORS[spec.accent]} ${speaking ? 'animate-pulse motion-reduce:animate-none' : ''} opacity-90`} />
-          <span className={`relative text-xl sm:text-2xl font-black ${isMitra ? 'text-emerald-950' : 'text-white'} drop-shadow-sm`}>{icon}</span>
+          <div
+            className={`absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t ${ACCENT_COLORS[spec.accent]} ${
+              speaking ? 'animate-pulse motion-reduce:animate-none' : ''
+            } opacity-90`}
+          />
+          <span
+            className={`relative text-xl sm:text-2xl font-black ${isMitra ? 'text-emerald-950' : 'text-white'} drop-shadow-sm`}
+          >
+            {icon}
+          </span>
           {isMitra && <span className="absolute top-1 right-1 w-3 h-3 rounded-full bg-white/90" />}
           {!isMitra && <span className="absolute top-1 left-1 w-3 h-3 rounded-full bg-white/70" />}
         </div>
@@ -620,6 +1358,10 @@ function AvatarGraphic({ spec, speaking, size = 'lg' }: { spec: AvatarSpec; spea
     </div>
   );
 }
+
+/* ════════════════════════════════════════════════════════════════════ */
+/* FARMER PROFILE CARD                                                */
+/* ════════════════════════════════════════════════════════════════════ */
 
 function FarmerProfileCard({
   profile,
@@ -638,17 +1380,31 @@ function FarmerProfileCard({
   return (
     <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center font-black text-gray-700">{avatar.initials}</div>
+        <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center font-black text-gray-700">
+          {avatar.initials}
+        </div>
         <div className="min-w-0 flex-1">
           <p className="font-black text-sm text-gray-900 truncate">{profile.displayName}</p>
-          <p className="text-[11px] text-gray-500 truncate">{profile.farmName}{profile.location ? ` · ${profile.location}` : ''}</p>
+          <p className="text-[11px] text-gray-500 truncate">
+            {profile.farmName}
+            {profile.location ? ` · ${profile.location}` : ''}
+          </p>
           {activeCrops.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
-              {activeCrops.map((crop) => <span key={crop} className="text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-100 px-1.5 py-0.5 rounded-full">{crop}</span>)}
+              {activeCrops.map((crop) => (
+                <span
+                  key={crop}
+                  className="text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-100 px-1.5 py-0.5 rounded-full"
+                >
+                  {crop}
+                </span>
+              ))}
             </div>
           )}
         </div>
-        <button onClick={() => setOpen((value) => !value)} className="shrink-0 text-xs font-bold text-emerald-700" aria-expanded={open}>{open ? 'Done' : 'Edit avatar'}</button>
+        <button onClick={() => setOpen((value) => !value)} className="shrink-0 text-xs font-bold text-emerald-700" aria-expanded={open}>
+          {open ? 'Done' : 'Edit avatar'}
+        </button>
       </div>
       {open && (
         <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
@@ -656,7 +1412,15 @@ function FarmerProfileCard({
             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">Colour shade</p>
             <div className="flex flex-wrap gap-1.5">
               {AVATAR_SKINS.map((skin) => (
-                <button key={skin} onClick={() => onSkinChange(skin)} className={`text-[11px] font-bold px-2.5 py-1.5 rounded-full border transition ${avatar.skin === skin ? 'ring-2 ring-emerald-600' : ''} ${SKIN_TEXT[skin]}`}>{skin}</button>
+                <button
+                  key={skin}
+                  onClick={() => onSkinChange(skin)}
+                  className={`text-[11px] font-bold px-2.5 py-1.5 rounded-full border transition ${
+                    avatar.skin === skin ? 'ring-2 ring-emerald-600' : ''
+                  } ${SKIN_TEXT[skin]}`}
+                >
+                  {skin}
+                </button>
               ))}
             </div>
           </div>
@@ -664,7 +1428,15 @@ function FarmerProfileCard({
             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">Scarf / accent</p>
             <div className="flex flex-wrap gap-1.5">
               {AVATAR_ACCENTS.map((accent) => (
-                <button key={accent} onClick={() => onAccentChange(accent)} className={`text-[11px] font-bold px-2.5 py-1.5 rounded-full border transition ${avatar.accent === accent ? 'ring-2 ring-emerald-600' : ''} ${ACCENT_TEXT[accent]}`}>{accent}</button>
+                <button
+                  key={accent}
+                  onClick={() => onAccentChange(accent)}
+                  className={`text-[11px] font-bold px-2.5 py-1.5 rounded-full border transition ${
+                    avatar.accent === accent ? 'ring-2 ring-emerald-600' : ''
+                  } ${ACCENT_TEXT[accent]}`}
+                >
+                  {accent}
+                </button>
               ))}
             </div>
           </div>
@@ -673,7 +1445,9 @@ function FarmerProfileCard({
             <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
               <AvatarGraphic spec={avatar} speaking={false} size="md" />
               <div className="text-xs text-gray-600 space-y-0.5">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Farmer speaker looks like this on your call</p>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">
+                  Farmer speaker looks like this on your call
+                </p>
                 <p>Initials change automatically from your name.</p>
                 <p className="text-[10px] text-gray-400">Stored on this device only.</p>
               </div>
@@ -681,7 +1455,9 @@ function FarmerProfileCard({
           </div>
         </div>
       )}
-      <p className="mt-3 text-[10px] text-gray-400 flex items-center gap-1"><RotateCcw className="w-3 h-3" />Feeds and answers prepared from FarmNexus help knowledge. No call leaves this device.</p>
+      <p className="mt-3 text-[10px] text-gray-400 flex items-center gap-1">
+        <span className="inline-block w-3 h-3">🔒</span>Feeds and answers prepared from FarmNexus help knowledge. No call leaves this device.
+      </p>
     </section>
   );
 }
