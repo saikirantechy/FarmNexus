@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useFarmStore } from '@/lib/farm-store';
 import { parseFarmerVoiceText } from '@/lib/ai-service';
 import { ParsedAITransaction, LanguageCode } from '@/types';
 import { formatRupee, calculateLabourCost } from '@/lib/calculations';
+import { getSpeechRecognition, SpeechRecognitionLike } from '@/lib/speech';
 import {
   Mic,
   MicOff,
@@ -41,12 +42,28 @@ export function VoiceTransactionRecorder() {
   const [parsedRecord, setParsedRecord] = useState<ParsedAITransaction | null>(null);
   const [savedSuccessMsg, setSavedSuccessMsg] = useState<string | null>(null);
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+
+  const handleAnalyze = useCallback(
+    (queryText: string) => {
+      const textToParse = queryText || inputQuery || '';
+      if (!textToParse.trim()) return;
+
+      const parsed = parseFarmerVoiceText(textToParse);
+      setParsedRecord(parsed);
+      setSavedSuccessMsg(null);
+    },
+    [inputQuery],
+  );
+
+  const handleAnalyzeRef = useRef(handleAnalyze);
+  useEffect(() => {
+    handleAnalyzeRef.current = handleAnalyze;
+  }, [handleAnalyze]);
 
   // Initialize Speech Recognition if supported in browser
   useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognition();
 
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
@@ -56,14 +73,14 @@ export function VoiceTransactionRecorder() {
 
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event) => {
         console.warn('Speech recognition error:', event.error);
         setIsListening(false);
       };
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
+      recognition.onresult = ({ results }) => {
+        const transcript = results[0][0].transcript;
         setInputQuery(transcript);
-        handleAnalyze(transcript);
+        handleAnalyzeRef.current(transcript);
       };
 
       recognitionRef.current = recognition;
@@ -85,15 +102,6 @@ export function VoiceTransactionRecorder() {
       recognitionRef.current.lang = LANGUAGE_SPEECH_MAP[language] || 'en-IN';
       recognitionRef.current.start();
     }
-  };
-
-  const handleAnalyze = (queryText: string) => {
-    const textToParse = queryText || inputQuery;
-    if (!textToParse.trim()) return;
-
-    const parsed = parseFarmerVoiceText(textToParse);
-    setParsedRecord(parsed);
-    setSavedSuccessMsg(null);
   };
 
   const handleConfirmAndSave = () => {

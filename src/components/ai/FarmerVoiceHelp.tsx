@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getAgricultureHelpAnswer } from '@/lib/ai-service';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { LanguageCode } from '@/types';
+import { getSpeechRecognition, SpeechRecognitionLike } from '@/lib/speech';
 import { Mic, MicOff, Send, Square, Volume2, VolumeX } from 'lucide-react';
 
 const speechLanguages: Record<LanguageCode, string> = { en: 'en-IN', hi: 'hi-IN', kn: 'kn-IN', mr: 'mr-IN', te: 'te-IN', ta: 'ta-IN' };
@@ -15,26 +16,32 @@ export function FarmerVoiceHelp() {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(true);
   const [autoSpeak, setAutoSpeak] = useState(true);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
-  const speak = (message: string) => {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(message);
-    utterance.lang = speechLanguages[language];
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
-  };
-  const ask = (question: string) => {
-    if (!question.trim()) return;
-    const response = getAgricultureHelpAnswer(question);
-    setInput('');
-    setAnswer(response);
-    if (autoSpeak) speak(response);
-  };
+  const speak = useCallback(
+    (message: string) => {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.lang = speechLanguages[language];
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    },
+    [language],
+  );
+  const ask = useCallback(
+    (question: string) => {
+      if (!question.trim()) return;
+      const response = getAgricultureHelpAnswer(question);
+      setInput('');
+      setAnswer(response);
+      if (autoSpeak) speak(response);
+    },
+    [autoSpeak, speak],
+  );
 
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) { setSupported(false); return; }
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
@@ -43,14 +50,14 @@ export function FarmerVoiceHelp() {
     recognition.onstart = () => setListening(true);
     recognition.onend = () => setListening(false);
     recognition.onerror = () => setListening(false);
-    recognition.onresult = (event: any) => {
-      const question = event.results[0][0].transcript as string;
+    recognition.onresult = ({ results }) => {
+      const question = results[0][0].transcript;
       setInput(question);
       ask(question);
     };
     recognitionRef.current = recognition;
     return () => recognition.abort();
-  }, [language, autoSpeak]);
+  }, [language, autoSpeak, ask]);
 
   const toggleListening = () => {
     if (!recognitionRef.current) return;

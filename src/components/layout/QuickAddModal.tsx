@@ -322,7 +322,7 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
                       </label>
                       <select
                         value={hGrade}
-                        onChange={(e) => setHGrade(e.target.value as any)}
+                        onChange={(e) => setHGrade(e.target.value as 'A' | 'B' | 'C' | 'Mixed')}
                         className="w-full text-sm font-medium border border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-600 outline-none"
                       >
                         <option value="A">Grade A (Super Quality)</option>
@@ -632,7 +632,7 @@ export function QuickAddModal({ isOpen, onClose, defaultTab = 'harvest' }: Quick
                       </label>
                       <select
                         value={sPaymentStatus}
-                        onChange={(e) => setSPaymentStatus(e.target.value as any)}
+                        onChange={(e) => setSPaymentStatus(e.target.value as 'paid' | 'pending')}
                         className="w-full text-sm font-medium border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 outline-none"
                       >
                         <option value="paid">Received (Cash/UPI)</option>

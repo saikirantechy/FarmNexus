@@ -4,6 +4,7 @@ import { LanguageProvider } from '@/lib/i18n/LanguageContext';
 import { FarmStoreProvider } from '@/lib/farm-store';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { FarmChatWidget } from '@/components/ai/FarmChatWidget';
 
 export const metadata: Metadata = {
   title: 'FarmNexus — Know Your Farm. Know Your Money.',
@@ -41,6 +42,7 @@ export default function RootLayout({
                 {children}
               </main>
               <BottomNav />
+              <FarmChatWidget />
             </div>
           </FarmStoreProvider>
         </LanguageProvider>

@@ -60,6 +60,7 @@ It is **not** a generic agriculture news or advisory app. FarmNexus is a **real 
 - Low-stock threshold alerts
 - Purchase / Usage / Adjustment transactions
 - Per-farm inventory isolation
+- Supplier and restock-purchase tracking
 
 ### ✅ Task Manager *(New)*
 - Schedule farm tasks: Irrigation, Spraying, Scouting, Harvest, Labour
@@ -70,6 +71,21 @@ It is **not** a generic agriculture news or advisory app. FarmNexus is a **real 
 - **Voice Transactions**: Speak naturally — "Today 50 boxes harvested at ₹280" — auto-extracted
 - **AI Crop Doctor**: Symptom-based disease diagnosis with organic and chemical remedies
 - Multi-language NLP parsing (English, Hindi, Kannada, Marathi, Telugu, Tamil)
+- **Farm Mitra**: a simplified, voice-first helper for crop care, pests, irrigation, fertilizer, harvest, markets, and app use
+- **On-screen chat**: a floating Farm Mitra chat button available on every screen for quick questions
+- **Call Farm Mitra**: a premium browser voice-call screen with green/red call controls, animated agent presence, a dial pad, speech-to-text, and spoken agricultural answers in the six languages currently supported by FarmNexus
+
+### ✨ Premium Navigation Menu *(New)*
+- A professional **More** menu groups Farm Operations, Insights, and Help & Account tools in one polished, mobile-friendly workspace.
+- Provides direct access to inventory, task calendar, calculator, weather, mandi prices, reports, Farm Mitra, AI Assistant, and settings.
+
+### 🧮 Digital Farm Calculator *(New)*
+- Automatically calculates crop-sale value, commission, transport, labour, input costs, and estimated profit or loss
+- Explains the result in simple farmer-friendly language and links to Farm Mitra for follow-up questions
+
+### 📝 Farm Whiteboard *(New)*
+- Draw field maps, irrigation lines, crop symptoms, harvest plans, or simple calculations with a finger or mouse.
+- Includes an eraser, colour pens, a notes area, practical visual prompts, and local device saving.
 
 ### 📊 Reports & Export
 - Full financial report with P&L breakdown
